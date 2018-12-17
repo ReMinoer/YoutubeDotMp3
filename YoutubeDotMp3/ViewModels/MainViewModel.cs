@@ -36,7 +36,7 @@ namespace YoutubeDotMp3.ViewModels
                         OperationViewModel operation = OperationViewModel.FromYoutubeUri(Clipboard.GetText());
                         if (operation != null)
                         {
-                            Operations.Add(operation);
+                            Operations.Insert(0, operation);
                             operation.RunAsync(cancellationToken).ConfigureAwait(false);
                         }
                     }
