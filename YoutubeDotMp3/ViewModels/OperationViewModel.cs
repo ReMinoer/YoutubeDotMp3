@@ -152,7 +152,7 @@ namespace YoutubeDotMp3.ViewModels
 
         static private string GetValidFileName(string directory, string title, string extension)
         {
-            foreach (char invalidFileNameChar in Path.GetInvalidPathChars())
+            foreach (char invalidFileNameChar in Path.GetInvalidFileNameChars())
                 title = title.Replace(invalidFileNameChar, '_');
 
             string validFileName = title;
