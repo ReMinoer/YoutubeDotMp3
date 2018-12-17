@@ -51,7 +51,11 @@ namespace YoutubeDotMp3.ViewModels
 
         public void Dispose()
         {
-            _cancellation?.Dispose();
+            if (_cancellation == null)
+                return;
+
+            _cancellation.Cancel();
+            _cancellation.Dispose();
         }
     }
 }
