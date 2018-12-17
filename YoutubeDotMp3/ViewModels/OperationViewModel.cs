@@ -115,7 +115,7 @@ namespace YoutubeDotMp3.ViewModels
         {
             byte[] buffer = await youtubeVideo.GetBytesAsync();
 
-            Throw.IfTaskCancelled(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
 
             using (FileStream tempVideoFileStream = File.OpenWrite(videoOutputFilePath))
                 await tempVideoFileStream.WriteAsync(buffer, 0, buffer.Length, cancellationToken);
@@ -125,7 +125,7 @@ namespace YoutubeDotMp3.ViewModels
         {
             await Task.Run(() =>
             {
-                Throw.IfTaskCancelled(cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
 
                 var videoFile = new MediaFile { Filename = inputFilePath };
                 var outputFile = new MediaFile { Filename = outputFilePath };
@@ -133,19 +133,19 @@ namespace YoutubeDotMp3.ViewModels
                 if (!Directory.Exists(OutputDirectoryPath))
                     Directory.CreateDirectory(OutputDirectoryPath);
 
-                Throw.IfTaskCancelled(cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
 
                 using (var engine = new MediaToolkit.Engine())
                 {
-                    Throw.IfTaskCancelled(cancellationToken);
+                    cancellationToken.ThrowIfCancellationRequested();
 
                     engine.GetMetadata(videoFile);
 
-                    Throw.IfTaskCancelled(cancellationToken);
+                    cancellationToken.ThrowIfCancellationRequested();
 
                     engine.Convert(videoFile, outputFile);
 
-                    Throw.IfTaskCancelled(cancellationToken);
+                    cancellationToken.ThrowIfCancellationRequested();
                 }
             }, cancellationToken);
         }
