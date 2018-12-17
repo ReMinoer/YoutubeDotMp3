@@ -30,7 +30,8 @@ namespace YoutubeDotMp3.ViewModels
             {
                 if (Clipboard.ContainsText())
                 {
-                    string clipboardText = Clipboard.GetText();
+                    string clipboardText = null;
+                    Application.Current.Dispatcher.Invoke(() => clipboardText = Clipboard.GetText());
                     if (clipboardText != _lastClipboardText)
                     {
                         OperationViewModel operation = OperationViewModel.FromYoutubeUri(Clipboard.GetText());
