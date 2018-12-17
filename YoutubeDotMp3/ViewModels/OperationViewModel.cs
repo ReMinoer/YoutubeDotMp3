@@ -87,10 +87,10 @@ namespace YoutubeDotMp3.ViewModels
             try
             {
                 CurrentState = State.DownloadingVideo;
-                await DownloadSync(youtubeVideo, videoTempFilePath, cancellationToken);
+                await DownloadAsync(youtubeVideo, videoTempFilePath, cancellationToken);
 
                 CurrentState = State.ConvertingToAudio;
-                await ConvertSync(videoTempFilePath, outputFilePath, cancellationToken);
+                await ConvertAsync(videoTempFilePath, outputFilePath, cancellationToken);
 
                 CurrentState = State.Completed;
             }
@@ -118,7 +118,7 @@ namespace YoutubeDotMp3.ViewModels
             _cancellation.Cancel();
         }
 
-        static private async Task DownloadSync(YouTubeVideo youtubeVideo, string videoOutputFilePath, CancellationToken cancellationToken)
+        static private async Task DownloadAsync(YouTubeVideo youtubeVideo, string videoOutputFilePath, CancellationToken cancellationToken)
         {
             byte[] buffer = await youtubeVideo.GetBytesAsync();
 
@@ -128,7 +128,7 @@ namespace YoutubeDotMp3.ViewModels
                 await tempVideoFileStream.WriteAsync(buffer, 0, buffer.Length, cancellationToken);
         }
 
-        static private async Task ConvertSync(string inputFilePath, string outputFilePath, CancellationToken cancellationToken)
+        static private async Task ConvertAsync(string inputFilePath, string outputFilePath, CancellationToken cancellationToken)
         {
             await Task.Run(() =>
             {
