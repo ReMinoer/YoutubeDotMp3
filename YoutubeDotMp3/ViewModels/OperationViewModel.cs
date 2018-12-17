@@ -64,8 +64,15 @@ namespace YoutubeDotMp3.ViewModels
             if (!YoutubeVideoAdressRegex.IsMatch(youtubeUri))
                 return null;
 
-            YouTubeVideo youtubeVideo = YouTube.Default.GetVideo(youtubeUri);
-            return youtubeVideo != null ? new OperationViewModel(youtubeVideo) : null;
+            try
+            {
+                YouTubeVideo youtubeVideo = YouTube.Default.GetVideo(youtubeUri);
+                return youtubeVideo != null ? new OperationViewModel(youtubeVideo) : null;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public async Task RunAsync(CancellationToken cancellationToken)
