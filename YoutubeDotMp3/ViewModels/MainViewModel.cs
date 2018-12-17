@@ -20,8 +20,15 @@ namespace YoutubeDotMp3.ViewModels
 
             if (Clipboard.ContainsText())
                 _lastClipboardText = Clipboard.GetText();
+            
+            RunClipboardWatchdog();
+        }
 
-            ClipboardWatchdog(TimeSpan.FromMilliseconds(500), _cancellation.Token).ConfigureAwait(false);
+        private void RunClipboardWatchdog()
+        {
+            ClipboardWatchdog(TimeSpan.FromMilliseconds(500), _cancellation.Token)
+                .ContinueWith(t => RunClipboardWatchdog(), _cancellation.Token, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.FromCurrentSynchronizationContext())
+                .ConfigureAwait(false);
         }
 
         private async Task ClipboardWatchdog(TimeSpan resfreshTime, CancellationToken cancellationToken)
