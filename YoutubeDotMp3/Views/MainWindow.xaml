@@ -29,7 +29,11 @@
                         <DockPanel Margin="5" ToolTip="{Binding Message}">
                             <DockPanel.ContextMenu>
                                 <ContextMenu>
+                                    <MenuItem Header="Play" Command="{Binding PlayCommand}" />
+                                    <MenuItem Header="Show in Explorer..." Command="{Binding ShowInExplorerCommand}" />
+                                    <Separator />
                                     <MenuItem Header="Cancel" Command="{Binding CancelCommand}" />
+                                    <MenuItem Header="Show Error Message..." Command="{Binding ShowErrorMessageCommand}" />
                                 </ContextMenu>
                             </DockPanel.ContextMenu>
                             <TextBlock Text="{Binding CurrentStateText}" DockPanel.Dock="Right" />
