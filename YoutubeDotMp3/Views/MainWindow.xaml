@@ -26,13 +26,13 @@
             <ListView ItemsSource="{Binding Operations}">
                 <ListView.ItemTemplate>
                     <DataTemplate DataType="{x:Type viewModels:OperationViewModel}">
-                        <DockPanel Margin="5">
+                        <DockPanel Margin="5" ToolTip="{Binding Message}">
                             <DockPanel.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="Cancel" Command="{Binding CancelCommand}" />
                                 </ContextMenu>
                             </DockPanel.ContextMenu>
-                            <TextBlock Text="{Binding CurrentState}" DockPanel.Dock="Right" />
+                            <TextBlock Text="{Binding CurrentStateText}" DockPanel.Dock="Right" />
                             <TextBlock Text="{Binding Title}" />
                         </DockPanel>
                     </DataTemplate>

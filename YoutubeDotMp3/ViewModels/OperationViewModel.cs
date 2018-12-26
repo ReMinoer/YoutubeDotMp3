@@ -43,8 +43,18 @@ namespace YoutubeDotMp3.ViewModels
         public State CurrentState
         {
             get => _currentState;
-            set => Set(ref _currentState, value);
+            set
+            {
+                if (!Set(ref _currentState, value))
+                    return;
+                
+                NotifyPropertyChanged(nameof(CurrentStateText));
+                NotifyPropertyChanged(nameof(Message));
+            }
         }
+        
+        public string CurrentStateText => GetStateDisplayText(CurrentState);
+        public string Message => GetStateMessage(CurrentState);
 
         private readonly CancellationTokenSource _cancellation;
 
@@ -178,6 +188,34 @@ namespace YoutubeDotMp3.ViewModels
             while (File.Exists(result));
 
             return result;
+        }
+
+        private string GetStateMessage(State currentState)
+        {
+            switch (currentState)
+            {
+                case State.Starting: return "Starting...";
+                case State.DownloadingVideo: return "Downloading video...";
+                case State.ConvertingToAudio: return "Converting video to audio file...";
+                case State.Completed: return "Completed with success.";
+                case State.Failed: return "Failed.";
+                case State.Canceled: return "Cancelled by user.";
+                default: return null;
+            }
+        }
+
+        private string GetStateDisplayText(State currentState)
+        {
+            switch (currentState)
+            {
+                case State.Starting: return "Starting...";
+                case State.DownloadingVideo: return "Downloading video...";
+                case State.ConvertingToAudio: return "Converting to audio...";
+                case State.Completed: return "Completed";
+                case State.Failed: return "Failed";
+                case State.Canceled: return "Cancelled";
+                default: return currentState.ToString();
+            }
         }
     }
 }
