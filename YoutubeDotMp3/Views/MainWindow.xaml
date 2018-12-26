@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:viewModels="clr-namespace:YoutubeDotMp3.ViewModels"
+        xmlns:wpfToggleSwitch="clr-namespace:WPFToggleSwitch;assembly=WPFToggleSwitch"
         mc:Ignorable="d"
         Height="450"
         Width="800"
@@ -13,7 +14,14 @@
     <Window.DataContext>
         <viewModels:MainViewModel />
     </Window.DataContext>
-    <Grid>
+    <DockPanel>
+        <DockPanel DockPanel.Dock="Top" Margin="5">
+            <wpfToggleSwitch:ToggleSwitch DockPanel.Dock="Right" Margin="5 0 0 0" Content="Clipboard watcher" IsChecked="{Binding IsClipboardWatcherEnabled}" />
+            <DockPanel>
+                <Label DockPanel.Dock="Left" VerticalAlignment="Center">Youtube URL</Label>
+                <TextBox x:Name="UrlTextBox" MaxLines="1" KeyDown="UrlTextBoxOnKeyDown" />
+            </DockPanel>
+        </DockPanel>
         <Grid>
             <ListView ItemsSource="{Binding Operations}">
                 <ListView.ItemTemplate>
@@ -36,5 +44,5 @@
                 </ListView.ItemContainerStyle>
             </ListView>
         </Grid>
-    </Grid>
+    </DockPanel>
 </Window>

@@ -97,6 +97,9 @@
     <PackageReference Include="VideoLibraryHIG">
       <Version>1.5.2</Version>
     </PackageReference>
+    <PackageReference Include="WPFToggleSwitch">
+      <Version>1.0.0</Version>
+    </PackageReference>
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Resources\icon.ico" />

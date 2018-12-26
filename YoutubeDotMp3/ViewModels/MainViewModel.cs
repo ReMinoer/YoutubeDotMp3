@@ -11,6 +11,23 @@ namespace YoutubeDotMp3.ViewModels
     {
         public ObservableCollection<OperationViewModel> Operations { get; } = new ObservableCollection<OperationViewModel>();
 
+        private bool _isClipboardWatcherEnabled = true;
+        public bool IsClipboardWatcherEnabled
+        {
+            get => _isClipboardWatcherEnabled;
+            set
+            {
+                if (Set(ref _isClipboardWatcherEnabled, value))
+                {
+                    if (_isClipboardWatcherEnabled)
+                    {
+                        _lastClipboardText = Clipboard.GetText();
+                        RunClipboardWatcher();
+                    }
+                }
+            }
+        }
+
         private readonly CancellationTokenSource _cancellation;
         private string _lastClipboardText;
 
@@ -21,39 +38,50 @@ namespace YoutubeDotMp3.ViewModels
             if (Clipboard.ContainsText())
                 _lastClipboardText = Clipboard.GetText();
             
-            RunClipboardWatchdog();
+            RunClipboardWatcher();
         }
 
-        private void RunClipboardWatchdog()
+        public void AddOperation(string url)
         {
+            AddOperation(url, _cancellation.Token);
+        }
+
+        private void RunClipboardWatcher()
+        {
+            if (!IsClipboardWatcherEnabled)
+                return;
+
             ClipboardWatchdog(TimeSpan.FromMilliseconds(500), _cancellation.Token)
-                .ContinueWith(t => RunClipboardWatchdog(), _cancellation.Token, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.FromCurrentSynchronizationContext())
+                .ContinueWith(t => RunClipboardWatcher(), _cancellation.Token, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.FromCurrentSynchronizationContext())
                 .ConfigureAwait(false);
         }
 
         private async Task ClipboardWatchdog(TimeSpan resfreshTime, CancellationToken cancellationToken)
         {
-            while (!cancellationToken.IsCancellationRequested)
+            while (IsClipboardWatcherEnabled && !cancellationToken.IsCancellationRequested)
             {
                 if (Clipboard.ContainsText())
                 {
                     string clipboardText = null;
                     Application.Current.Dispatcher.Invoke(() => clipboardText = Clipboard.GetText());
                     if (clipboardText != _lastClipboardText)
-                    {
-                        OperationViewModel operation = OperationViewModel.FromYoutubeUri(Clipboard.GetText());
-                        if (operation != null)
-                        {
-                            Operations.Insert(0, operation);
-                            operation.RunAsync(cancellationToken).ConfigureAwait(false);
-                        }
-                    }
+                        AddOperation(Clipboard.GetText(), cancellationToken);
 
                     _lastClipboardText = clipboardText;
                 }
 
                 await Task.Delay(resfreshTime, cancellationToken);
             }
+        }
+
+        private void AddOperation(string url, CancellationToken cancellationToken)
+        {
+            OperationViewModel operation = OperationViewModel.FromYoutubeUri(url);
+            if (operation == null)
+                return;
+
+            Operations.Insert(0, operation);
+            operation.RunAsync(cancellationToken).ConfigureAwait(false);
         }
 
         public void Dispose()
