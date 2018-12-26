@@ -56,7 +56,7 @@ namespace YoutubeDotMp3.ViewModels
                 .ConfigureAwait(false);
         }
 
-        private async Task ClipboardWatchdog(TimeSpan resfreshTime, CancellationToken cancellationToken)
+        private async Task ClipboardWatchdog(TimeSpan refreshTime, CancellationToken cancellationToken)
         {
             while (IsClipboardWatcherEnabled && !cancellationToken.IsCancellationRequested)
             {
@@ -70,7 +70,7 @@ namespace YoutubeDotMp3.ViewModels
                     _lastClipboardText = clipboardText;
                 }
 
-                await Task.Delay(resfreshTime, cancellationToken);
+                await Task.Delay(refreshTime, cancellationToken);
             }
         }
 

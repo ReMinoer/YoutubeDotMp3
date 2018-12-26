@@ -26,8 +26,8 @@ namespace YoutubeDotMp3.ViewModels
         public const string OutputDirectory = nameof(YoutubeDotMp3);
         static public string OutputDirectoryPath { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), OutputDirectory);
 
-        private const string YoutubeVideoAdressRegexPattern = @"^(?:https?:\/\/)?(?:(?:www\.)?youtube\.com\/watch\?v=[\w\-]*(?:\&.*)?|youtu\.be\/([\w\-]*)?:\?.*?)$";
-        static private readonly Regex YoutubeVideoAdressRegex = new Regex(YoutubeVideoAdressRegexPattern, RegexOptions.Compiled);
+        private const string YoutubeVideoAddressRegexPattern = @"^(?:https?:\/\/)?(?:(?:www\.)?youtube\.com\/watch\?v=[\w\-]*(?:\&.*)?|youtu\.be\/([\w\-]*)?:\?.*?)$";
+        static private readonly Regex YoutubeVideoAddressRegex = new Regex(YoutubeVideoAddressRegexPattern, RegexOptions.Compiled);
         
         public YouTubeVideo YoutubeVideo { get; }
         public ICommand CancelCommand { get; }
@@ -71,7 +71,7 @@ namespace YoutubeDotMp3.ViewModels
 
         static public OperationViewModel FromYoutubeUri(string youtubeUri)
         {
-            if (!YoutubeVideoAdressRegex.IsMatch(youtubeUri))
+            if (!YoutubeVideoAddressRegex.IsMatch(youtubeUri))
                 return null;
 
             try
