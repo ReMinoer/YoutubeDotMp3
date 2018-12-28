@@ -4,16 +4,25 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:viewModels="clr-namespace:YoutubeDotMp3.ViewModels"
+        xmlns:converters="clr-namespace:YoutubeDotMp3.Converters"
         xmlns:wpfToggleSwitch="clr-namespace:WPFToggleSwitch;assembly=WPFToggleSwitch"
         mc:Ignorable="d"
         Height="450"
         Width="800"
-        Title="Youtube.Mp3"
+        Title="{x:Static viewModels:MainViewModel.ApplicationName}"
         Icon="../Resources/icon.ico"
+        Closing="OnClosing"
         Closed="OnClosed">
     <Window.DataContext>
         <viewModels:MainViewModel />
     </Window.DataContext>
+    <Window.Resources>
+        <ResourceDictionary>
+            <converters:OperationStateToDisplayText x:Key="OperationStateToDisplayText" />
+            <converters:OperationStateToMessage x:Key="OperationStateToMessage" />
+            <converters:OperationStateToBrush x:Key="OperationStateToBrush" />
+        </ResourceDictionary>
+    </Window.Resources>
     <DockPanel>
         <DockPanel DockPanel.Dock="Top" Margin="5">
             <wpfToggleSwitch:ToggleSwitch DockPanel.Dock="Right" Margin="5 0 0 0" Content="Clipboard watcher" IsChecked="{Binding IsClipboardWatcherEnabled}" />
@@ -26,7 +35,7 @@
             <ListView ItemsSource="{Binding Operations}">
                 <ListView.ItemTemplate>
                     <DataTemplate DataType="{x:Type viewModels:OperationViewModel}">
-                        <DockPanel Margin="5" ToolTip="{Binding Message}">
+                        <DockPanel Margin="5" ToolTip="{Binding CurrentState, Converter={StaticResource OperationStateToMessage}}" MouseLeftButtonDown="OperationOnDoubleClick">
                             <DockPanel.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="Play" Command="{Binding PlayCommand}" />
@@ -36,8 +45,14 @@
                                     <MenuItem Header="Show Error Message..." Command="{Binding ShowErrorMessageCommand}" />
                                 </ContextMenu>
                             </DockPanel.ContextMenu>
-                            <TextBlock Text="{Binding CurrentStateText}" DockPanel.Dock="Right" />
-                            <TextBlock Text="{Binding Title}" />
+                            <WrapPanel DockPanel.Dock="Right">
+                                <Ellipse Width="9" Height="9" Stroke="Gray" StrokeThickness="0.5" Fill="{Binding CurrentState, Converter={StaticResource OperationStateToBrush}}" Margin="3" />
+                                <TextBlock Text="{Binding CurrentState, Converter={StaticResource OperationStateToDisplayText}}" />
+                            </WrapPanel>
+                            <StackPanel Orientation="Vertical">
+                                <TextBlock Text="{Binding Title}" />
+                                <TextBlock Text="{Binding YoutubeVideoUri}" Foreground="Gray" FontSize="8" />
+                            </StackPanel>
                         </DockPanel>
                     </DataTemplate>
                 </ListView.ItemTemplate>

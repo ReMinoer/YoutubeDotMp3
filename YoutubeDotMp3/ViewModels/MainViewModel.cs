@@ -1,15 +1,24 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using YoutubeDotMp3.ViewModels.Base;
+using YoutubeDotMp3.ViewModels.Utils;
 
 namespace YoutubeDotMp3.ViewModels
 {
     public class MainViewModel : NotifyPropertyChangedBase, IDisposable
     {
+        public const string ApplicationName = "Youtube.Mp3";
+
+        private readonly SemaphoreSlimQueued _operationSemaphore = new SemaphoreSlimQueued(Environment.ProcessorCount - 1);
+        private ConcurrentDictionary<Task, byte> Tasks { get; } = new ConcurrentDictionary<Task, byte>();
+
         public ObservableCollection<OperationViewModel> Operations { get; } = new ObservableCollection<OperationViewModel>();
+        public bool HasRunningOperations => Tasks.Count > 0;
 
         private bool _isClipboardWatcherEnabled = true;
         public bool IsClipboardWatcherEnabled
@@ -28,7 +37,7 @@ namespace YoutubeDotMp3.ViewModels
             }
         }
 
-        private readonly CancellationTokenSource _cancellation;
+        private CancellationTokenSource _cancellation;
         private string _lastClipboardText;
 
         public MainViewModel()
@@ -41,9 +50,9 @@ namespace YoutubeDotMp3.ViewModels
             RunClipboardWatcher();
         }
 
-        public void AddOperation(string url)
+        public async Task AddOperation(string url)
         {
-            AddOperation(url, _cancellation.Token);
+            await AddOperation(url, _cancellation.Token);
         }
 
         private void RunClipboardWatcher()
@@ -65,7 +74,7 @@ namespace YoutubeDotMp3.ViewModels
                     string clipboardText = null;
                     Application.Current.Dispatcher.Invoke(() => clipboardText = Clipboard.GetText());
                     if (clipboardText != _lastClipboardText)
-                        AddOperation(Clipboard.GetText(), cancellationToken);
+                        await AddOperation(Clipboard.GetText(), cancellationToken);
 
                     _lastClipboardText = clipboardText;
                 }
@@ -73,24 +82,49 @@ namespace YoutubeDotMp3.ViewModels
                 await Task.Delay(refreshTime, cancellationToken);
             }
         }
-
-        private void AddOperation(string url, CancellationToken cancellationToken)
+        
+        private async Task AddOperation(string url, CancellationToken cancellationToken)
         {
             OperationViewModel operation = OperationViewModel.FromYoutubeUri(url);
             if (operation == null)
                 return;
 
             Operations.Insert(0, operation);
-            operation.RunAsync(cancellationToken).ConfigureAwait(false);
+            
+            Task semaphoreWaitTask = _operationSemaphore.WaitAsync(cancellationToken);
+
+            await operation.InitializeAsync(cancellationToken);
+            await semaphoreWaitTask;
+
+            Task runTask = operation.RunAsync(cancellationToken);
+            Tasks.GetOrAdd(runTask, default(byte));
+
+            runTask.ContinueWith(t =>
+            {
+                _operationSemaphore.Release();
+                Tasks.TryRemove(t, out _);
+            }, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task CancelAllOperations()
+        {
+            if (_cancellation != null)
+            {
+                _cancellation.Cancel();
+                _cancellation.Dispose();
+                _cancellation = null;
+            }
+
+            foreach (OperationViewModel operation in Operations)
+                operation.Cancel();
+
+            await Task.WhenAll(Tasks.Keys.ToArray());
         }
 
         public void Dispose()
         {
-            if (_cancellation == null)
-                return;
-
-            _cancellation.Cancel();
-            _cancellation.Dispose();
+            CancelAllOperations().Wait();
+            _operationSemaphore.Dispose();
         }
     }
 }

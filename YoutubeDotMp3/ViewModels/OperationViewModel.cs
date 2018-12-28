@@ -17,11 +17,13 @@ namespace YoutubeDotMp3.ViewModels
     {
         public enum State
         {
-            Starting,
+            Initializing,
+            InQueue,
             DownloadingVideo,
             ConvertingToAudio,
             Completed,
             Failed,
+            Cancelling,
             Canceled
         }
 
@@ -31,24 +33,27 @@ namespace YoutubeDotMp3.ViewModels
         private const string YoutubeVideoAddressRegexPattern = @"^(?:https?:\/\/)?(?:(?:www\.)?youtube\.com\/watch\?v=[\w\-]*(?:\&.*)?|youtu\.be\/([\w\-]*)?:\?.*?)$";
         static private readonly Regex YoutubeVideoAddressRegex = new Regex(YoutubeVideoAddressRegexPattern, RegexOptions.Compiled);
         
-        public YouTubeVideo YoutubeVideo { get; }
         private string _outputFilePath;
         private string _exceptionMessage;
+        private readonly CancellationTokenSource _cancellation;
 
         public SimpleCommand[] Commands { get; }
         public SimpleCommand PlayCommand { get; }
         public SimpleCommand ShowInExplorerCommand { get; }
         public SimpleCommand CancelCommand { get; }
         public SimpleCommand ShowErrorMessageCommand { get; }
+        
+        public string YoutubeVideoUri { get; }
+        public YouTubeVideo YoutubeVideo { get; private set; }
 
         private string _title;
         public string Title
         {
-            get => _title;
+            get => _title ?? "<...>";
             set => Set(ref _title, value);
         }
 
-        private State _currentState = State.Starting;
+        private State _currentState = State.Initializing;
         public State CurrentState
         {
             get => _currentState;
@@ -57,25 +62,15 @@ namespace YoutubeDotMp3.ViewModels
                 if (!Set(ref _currentState, value))
                     return;
                 
-                NotifyPropertyChanged(nameof(CurrentStateText));
-                NotifyPropertyChanged(nameof(Message));
-                
                 foreach (SimpleCommand command in Commands)
                     command.UpdateCanExecute();
             }
         }
-        
-        public string CurrentStateText => GetStateDisplayText(CurrentState);
-        public string Message => GetStateMessage(CurrentState);
 
-        private readonly CancellationTokenSource _cancellation;
-
-        private OperationViewModel(YouTubeVideo youtubeVideo)
+        private OperationViewModel(string youtubeVideoUri)
         {
-            YoutubeVideo = youtubeVideo;
-            Title = youtubeVideo.Title;
-            Title = Title.Substring(0, Title.Length - " - Youtube".Length);
-            
+            YoutubeVideoUri = youtubeVideoUri;
+
             Commands = new []
             {
                 PlayCommand = new SimpleCommand(Play, CanPlay),
@@ -87,35 +82,39 @@ namespace YoutubeDotMp3.ViewModels
             _cancellation = new CancellationTokenSource();
         }
 
-        static public OperationViewModel FromYoutubeUri(string youtubeUri)
+        static public OperationViewModel FromYoutubeUri(string youtubeVideoUri)
         {
-            if (!YoutubeVideoAddressRegex.IsMatch(youtubeUri))
-                return null;
+            return YoutubeVideoAddressRegex.IsMatch(youtubeVideoUri) ? new OperationViewModel(youtubeVideoUri) : null;
+        }
 
-            try
-            {
-                YouTubeVideo youtubeVideo = YouTube.Default.GetVideo(youtubeUri);
-                return youtubeVideo != null ? new OperationViewModel(youtubeVideo) : null;
-            }
-            catch
-            {
-                return null;
-            }
+        public async Task InitializeAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cancellation.Token).Token;
+            cancellationToken.ThrowIfCancellationRequested();
+            
+            YoutubeVideo = await YouTube.Default.GetVideoAsync(YoutubeVideoUri);
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            Title = YoutubeVideo.Title.Substring(0, YoutubeVideo.Title.Length - " - Youtube".Length);
+
+            _outputFilePath = GetValidFileName(OutputDirectoryPath, Title, ".mp3");
+            File.Create(_outputFilePath);
+
+            CurrentState = State.InQueue;
         }
 
         public async Task RunAsync(CancellationToken cancellationToken)
         {
-            YouTubeVideo youtubeVideo = YoutubeVideo;
-            string outputDirectoryPath = OutputDirectoryPath;
-            string videoTempFilePath = Path.GetTempFileName();
-            _outputFilePath = GetValidFileName(outputDirectoryPath, Title, ".mp3");
-
             cancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cancellation.Token).Token;
+            cancellationToken.ThrowIfCancellationRequested();
+
+            string videoTempFilePath = Path.GetTempFileName();
 
             try
             {
                 CurrentState = State.DownloadingVideo;
-                await DownloadAsync(youtubeVideo, videoTempFilePath, cancellationToken);
+                await DownloadAsync(YoutubeVideo, videoTempFilePath, cancellationToken);
 
                 CurrentState = State.ConvertingToAudio;
                 await ConvertAsync(videoTempFilePath, _outputFilePath, cancellationToken);
@@ -149,6 +148,8 @@ namespace YoutubeDotMp3.ViewModels
 
         static private async Task DownloadAsync(YouTubeVideo youtubeVideo, string videoOutputFilePath, CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             byte[] buffer = await youtubeVideo.GetBytesAsync();
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -186,11 +187,24 @@ namespace YoutubeDotMp3.ViewModels
             }, cancellationToken);
         }
         
-        private bool CanCancel() => CurrentState != State.Completed && CurrentState != State.Failed && CurrentState != State.Canceled;
-        private void Cancel()
+        private bool CanCancel() => CurrentState != State.Completed && CurrentState != State.Failed && CurrentState != State.Cancelling && CurrentState != State.Canceled;
+        public void Cancel()
         {
-            CurrentState = State.Canceled;
             _cancellation.Cancel();
+
+            switch (CurrentState)
+            {
+                case State.Initializing:
+                case State.ConvertingToAudio:
+                case State.DownloadingVideo:
+                case State.Cancelling:
+                    CurrentState = State.Cancelling;
+                    break;
+                case State.InQueue:
+                case State.Canceled:
+                    CurrentState = State.Canceled;
+                    break;
+            }
         }
         
         private bool CanPlay() => CurrentState == State.Completed && File.Exists(_outputFilePath);
@@ -232,34 +246,6 @@ namespace YoutubeDotMp3.ViewModels
             while (File.Exists(result));
 
             return result;
-        }
-
-        private string GetStateMessage(State currentState)
-        {
-            switch (currentState)
-            {
-                case State.Starting: return "Starting...";
-                case State.DownloadingVideo: return "Downloading video...";
-                case State.ConvertingToAudio: return "Converting video to audio file...";
-                case State.Completed: return "Completed with success.";
-                case State.Failed: return "Failed.";
-                case State.Canceled: return "Cancelled by user.";
-                default: return null;
-            }
-        }
-
-        private string GetStateDisplayText(State currentState)
-        {
-            switch (currentState)
-            {
-                case State.Starting: return "Starting...";
-                case State.DownloadingVideo: return "Downloading video...";
-                case State.ConvertingToAudio: return "Converting to audio...";
-                case State.Completed: return "Completed";
-                case State.Failed: return "Failed";
-                case State.Canceled: return "Cancelled";
-                default: return currentState.ToString();
-            }
         }
     }
 }
