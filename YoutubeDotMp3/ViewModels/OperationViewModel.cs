@@ -162,29 +162,37 @@ namespace YoutubeDotMp3.ViewModels
         {
             await Task.Run(() =>
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                var videoFile = new MediaFile { Filename = inputFilePath };
-                var outputFile = new MediaFile { Filename = outputFilePath };
-
-                if (!Directory.Exists(OutputDirectoryPath))
-                    Directory.CreateDirectory(OutputDirectoryPath);
-
-                cancellationToken.ThrowIfCancellationRequested();
-
-                using (var engine = new MediaToolkit.Engine())
+                try
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    engine.GetMetadata(videoFile);
+                    var videoFile = new MediaFile { Filename = inputFilePath };
+                    var outputFile = new MediaFile { Filename = outputFilePath };
+
+                    if (!Directory.Exists(OutputDirectoryPath))
+                        Directory.CreateDirectory(OutputDirectoryPath);
 
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    engine.Convert(videoFile, outputFile);
+                    using (var engine = new MediaToolkit.Engine())
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
 
-                    cancellationToken.ThrowIfCancellationRequested();
+                        engine.GetMetadata(videoFile);
+
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        engine.Convert(videoFile, outputFile);
+
+                        cancellationToken.ThrowIfCancellationRequested();
+                    }
+                }
+                catch (OperationCanceledException)
+                {
                 }
             }, cancellationToken);
+
+            cancellationToken.ThrowIfCancellationRequested();
         }
         
         private bool CanCancel() => CurrentState != State.Completed && CurrentState != State.Failed && CurrentState != State.Cancelling && CurrentState != State.Canceled;
