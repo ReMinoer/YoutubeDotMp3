@@ -56,5 +56,15 @@ namespace YoutubeDotMp3.Views
             if (e.Key == Key.Return)
                 await _viewModel.AddOperation(UrlTextBox.Text);
         }
+
+        private void OperationOnDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount >= 2)
+            {
+                var operation = (OperationViewModel)((FrameworkElement)sender).DataContext;
+                if (operation.CanPlay())
+                    operation.Play();
+            }
+        }
     }
 }

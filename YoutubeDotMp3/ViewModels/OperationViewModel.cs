@@ -215,8 +215,8 @@ namespace YoutubeDotMp3.ViewModels
             }
         }
         
-        private bool CanPlay() => CurrentState == State.Completed && File.Exists(_outputFilePath);
-        private void Play()
+        public bool CanPlay() => CurrentState == State.Completed && File.Exists(_outputFilePath);
+        public void Play()
         {
             Process.Start(_outputFilePath);
         }
