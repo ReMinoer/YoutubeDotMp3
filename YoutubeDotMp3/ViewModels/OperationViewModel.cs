@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -149,13 +150,30 @@ namespace YoutubeDotMp3.ViewModels
         static private async Task DownloadAsync(YouTubeVideo youtubeVideo, string videoOutputFilePath, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
-            byte[] buffer = await youtubeVideo.GetBytesAsync();
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-            using (FileStream tempVideoFileStream = File.OpenWrite(videoOutputFilePath))
-                await tempVideoFileStream.WriteAsync(buffer, 0, buffer.Length, cancellationToken);
+            
+            using (var httpClient = new HttpClient())
+            {
+                string requestUri = await youtubeVideo.GetUriAsync();
+                using (HttpResponseMessage httpResponseMessage = await httpClient.GetAsync(requestUri, HttpCompletionOption.ResponseContentRead, cancellationToken))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    using (Stream videoInputStream = await httpResponseMessage.Content.ReadAsStreamAsync())
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        using (FileStream videoOutputFileStream = File.OpenWrite(videoOutputFilePath))
+                        {
+                            int readBytes;
+                            var buffer = new byte[4096];
+                            do
+                            {
+                                readBytes = await videoInputStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
+                                await videoOutputFileStream.WriteAsync(buffer, 0, readBytes, cancellationToken);
+                            }
+                            while (readBytes == buffer.Length);
+                        }
+                    }
+                }
+            }
         }
 
         static private async Task ConvertAsync(string inputFilePath, string outputFilePath, CancellationToken cancellationToken)
