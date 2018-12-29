@@ -58,6 +58,7 @@
                                 <ContextMenu>
                                     <MenuItem Header="Play" Command="{Binding PlayCommand}" />
                                     <MenuItem Header="Show in Explorer..." Command="{Binding ShowInExplorerCommand}" />
+                                    <MenuItem Header="Show on Youtube..." Command="{Binding ShowOnYoutubeCommand}" />
                                     <Separator />
                                     <MenuItem Header="Cancel" Command="{Binding CancelCommand}" />
                                     <MenuItem Header="Show Error Message..." Command="{Binding ShowErrorMessageCommand}" />
@@ -96,7 +97,7 @@
                                              Height="5"
                                              Visibility="{Binding CurrentState, Converter={StaticResource OperationStateToProgressVisibility}}"
                                              />
-                                <TextBlock Text="{Binding YoutubeVideoUri}" />
+                                <TextBlock Text="{Binding YoutubeVideoUrl}" />
                             </DockPanel>
                         </StackPanel>
                     </DataTemplate>

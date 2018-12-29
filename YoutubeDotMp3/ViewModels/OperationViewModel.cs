@@ -33,7 +33,7 @@ namespace YoutubeDotMp3.ViewModels
         public const string OutputDirectory = nameof(YoutubeDotMp3);
         static public string OutputDirectoryPath { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), OutputDirectory);
 
-        private const string YoutubeVideoAddressRegexPattern = @"^(?:https?:\/\/)?(?:(?:www\.)?youtube\.com\/watch\?v=[\w\-]*(?:\&.*)?|youtu\.be\/([\w\-]*)?:\?.*?)$";
+        private const string YoutubeVideoAddressRegexPattern = @"^(?:https?:\/\/)?(?:(?:www\.)?youtube\.com\/watch\?.*v=([\w\-]*)?(?:\&.*)?.*|youtu\.be\/([\w\-]*)?:\?.*?)$";
         static private readonly Regex YoutubeVideoAddressRegex = new Regex(YoutubeVideoAddressRegexPattern, RegexOptions.Compiled);
 
         private string _outputFilePath;
@@ -44,10 +44,11 @@ namespace YoutubeDotMp3.ViewModels
         public SimpleCommand[] Commands { get; }
         public SimpleCommand PlayCommand { get; }
         public SimpleCommand ShowInExplorerCommand { get; }
+        public SimpleCommand ShowOnYoutubeCommand { get; }
         public SimpleCommand CancelCommand { get; }
         public SimpleCommand ShowErrorMessageCommand { get; }
         
-        public string YoutubeVideoUri { get; }
+        public string YoutubeVideoUrl { get; }
 
         private YouTubeVideo _youtubeVideo;
         public YouTubeVideo YoutubeVideo
@@ -98,22 +99,23 @@ namespace YoutubeDotMp3.ViewModels
             private set => Set(ref _downloadSpeed, value);
         }
 
-        private OperationViewModel(string youtubeVideoUri)
+        private OperationViewModel(string youtubeVideoUrl)
         {
-            YoutubeVideoUri = youtubeVideoUri;
+            YoutubeVideoUrl = youtubeVideoUrl;
 
             Commands = new []
             {
                 PlayCommand = new SimpleCommand(Play, CanPlay),
                 ShowInExplorerCommand = new SimpleCommand(ShowInExplorer, CanShowInExplorer),
+                ShowOnYoutubeCommand = new SimpleCommand(ShowOnYoutube),
                 CancelCommand = new SimpleCommand(Cancel, CanCancel),
                 ShowErrorMessageCommand = new SimpleCommand(ShowErrorMessage, CanShowErrorMessage)
             };
         }
 
-        static public OperationViewModel FromYoutubeUri(string youtubeVideoUri)
+        static public OperationViewModel FromYoutubeUri(string youtubeVideoUrl)
         {
-            return YoutubeVideoAddressRegex.IsMatch(youtubeVideoUri) ? new OperationViewModel(youtubeVideoUri) : null;
+            return YoutubeVideoAddressRegex.IsMatch(youtubeVideoUrl) ? new OperationViewModel(youtubeVideoUrl) : null;
         }
 
         public async Task InitializeAsync(CancellationToken cancellationToken)
@@ -121,7 +123,7 @@ namespace YoutubeDotMp3.ViewModels
             cancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cancellation.Token).Token;
             cancellationToken.ThrowIfCancellationRequested();
             
-            YoutubeVideo = await YouTube.Default.GetVideoAsync(YoutubeVideoUri);
+            YoutubeVideo = await YouTube.Default.GetVideoAsync(YoutubeVideoUrl);
 
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -301,6 +303,11 @@ namespace YoutubeDotMp3.ViewModels
         private void ShowInExplorer()
         {
             Process.Start("explorer.exe", $"/select,\"{_outputFilePath}\"");
+        }
+        
+        private void ShowOnYoutube()
+        {
+            Process.Start(YoutubeVideoUrl);
         }
 
         private bool CanShowErrorMessage() => CurrentState == State.Failed;

@@ -58,9 +58,9 @@ namespace YoutubeDotMp3.ViewModels
             RunClipboardWatcher();
         }
 
-        public async Task AddOperation(string url)
+        public async Task AddOperation(string youtubeVideoUrl)
         {
-            await AddOperation(url, _cancellation.Token);
+            await AddOperation(youtubeVideoUrl, _cancellation.Token);
         }
 
         private void RunClipboardWatcher()
@@ -91,10 +91,10 @@ namespace YoutubeDotMp3.ViewModels
             }
         }
         
-        private async Task AddOperation(string url, CancellationToken cancellationToken)
+        private async Task AddOperation(string youtubeVideoUrl, CancellationToken cancellationToken)
         {
             Task downloadSemaphoreWaitTask = _downloadSemaphore.WaitAsync(cancellationToken);
-            OperationViewModel operation = OperationViewModel.FromYoutubeUri(url);
+            OperationViewModel operation = OperationViewModel.FromYoutubeUri(youtubeVideoUrl);
             if (operation == null)
                 return;
 
