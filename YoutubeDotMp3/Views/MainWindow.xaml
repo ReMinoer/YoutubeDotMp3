@@ -22,6 +22,7 @@
             <converters:OperationStateToMessage x:Key="OperationStateToMessage" />
             <converters:OperationStateToBrush x:Key="OperationStateToBrush" />
             <converters:OperationStateToProgressVisibility x:Key="OperationStateToProgressVisibility" />
+            <converters:BytesCountToMegaBytesText x:Key="BytesCountToMegaBytesText"/>
         </ResourceDictionary>
     </Window.Resources>
     <DockPanel>
@@ -32,6 +33,15 @@
                 <TextBox x:Name="UrlTextBox" MaxLines="1" KeyDown="UrlTextBoxOnKeyDown" />
             </DockPanel>
         </DockPanel>
+        <StatusBar DockPanel.Dock="Bottom">
+            <StatusBarItem>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Download speed: " />
+                    <TextBlock Text="{Binding DownloadSpeed, Converter={StaticResource BytesCountToMegaBytesText}}" />
+                    <TextBlock Text=" Mb/s" />
+                </StackPanel>
+            </StatusBarItem>
+        </StatusBar>
         <Grid>
             <ListView ItemsSource="{Binding Operations}">
                 <ListView.ItemTemplate>
@@ -68,8 +78,8 @@
                             </DockPanel>
                             <DockPanel>
                                 <ProgressBar DockPanel.Dock="Right"
-                                             Value="{Binding StepProgress}"
-                                             Maximum="1"
+                                             Value="{Binding DownloadedBytes, Mode=OneWay}"
+                                             Maximum="{Binding VideoSize}"
                                              Width="100"
                                              Height="5"
                                              Visibility="{Binding CurrentState, Converter={StaticResource OperationStateToProgressVisibility}}"

@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -39,6 +40,12 @@ namespace YoutubeDotMp3.ViewModels
 
         private CancellationTokenSource _cancellation;
         private string _lastClipboardText;
+        private long _downloadSpeed;
+        public long DownloadSpeed
+        {
+            get => _downloadSpeed;
+            private set => Set(ref _downloadSpeed, value);
+        }
 
         public MainViewModel()
         {
@@ -47,6 +54,7 @@ namespace YoutubeDotMp3.ViewModels
             if (Clipboard.ContainsText())
                 _lastClipboardText = Clipboard.GetText();
             
+            Observable.Interval(TimeSpan.FromSeconds(1)).Subscribe(_ => DownloadSpeed = Operations.Sum(x => x.RefreshDownloadSpeed()));
             RunClipboardWatcher();
         }
 

@@ -2,6 +2,8 @@
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -37,6 +39,7 @@ namespace YoutubeDotMp3.ViewModels
         private string _outputFilePath;
         private string _exceptionMessage;
         private readonly CancellationTokenSource _cancellation;
+        private Subject<long> _downloadedBytesSubject;
 
         public SimpleCommand[] Commands { get; }
         public SimpleCommand PlayCommand { get; }
@@ -62,18 +65,31 @@ namespace YoutubeDotMp3.ViewModels
             {
                 if (!Set(ref _currentState, value))
                     return;
-
-                StepProgress = 0;
+                
                 foreach (SimpleCommand command in Commands)
                     command.UpdateCanExecute();
             }
         }
-
-        private float _stepProgress;
-        public float StepProgress
+        
+        private long _downloadedBytes;
+        public long DownloadedBytes
         {
-            get => _stepProgress;
-            set => Set(ref _stepProgress, value);
+            get => _downloadedBytes;
+            private set => Set(ref _downloadedBytes, value);
+        }
+
+        private long _videoSize;
+        public long VideoSize
+        {
+            get => _videoSize;
+            private set => Set(ref _videoSize, value);
+        }
+
+        private long _downloadSpeed;
+        public long DownloadSpeed
+        {
+            get => _downloadSpeed;
+            private set => Set(ref _downloadSpeed, value);
         }
 
         private OperationViewModel(string youtubeVideoUri)
@@ -165,41 +181,53 @@ namespace YoutubeDotMp3.ViewModels
         private async Task DownloadAsync(YouTubeVideo youtubeVideo, string videoOutputFilePath, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            
-            using (var httpClient = new HttpClient())
+            DownloadedBytes = 0;
+            VideoSize = long.MaxValue;
+
+            using (_downloadedBytesSubject = new Subject<long>())
+            using (_downloadedBytesSubject.Scan((size: 0L, speed: 0L), (previous, currentSize) => (currentSize, currentSize - previous.size))
+                                          .Subscribe(current => DownloadSpeed = current.speed))
             {
-                string requestUri = await youtubeVideo.GetUriAsync();
-                using (HttpResponseMessage response = await httpClient.GetAsync(requestUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
+                using (var httpClient = new HttpClient())
                 {
-                    response.EnsureSuccessStatusCode();
-
-                    long inputLength = response.Content.Headers.ContentLength
-                                       ?? throw new EndOfStreamException();
-
-                    cancellationToken.ThrowIfCancellationRequested();
-                    using (Stream videoInputStream = await response.Content.ReadAsStreamAsync())
+                    string requestUri = await youtubeVideo.GetUriAsync();
+                    using (HttpResponseMessage response = await httpClient.GetAsync(requestUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
                     {
+                        response.EnsureSuccessStatusCode();
+
+                        VideoSize = response.Content.Headers.ContentLength ?? throw new EndOfStreamException();
+
                         cancellationToken.ThrowIfCancellationRequested();
-                        using (FileStream videoOutputFileStream = File.OpenWrite(videoOutputFilePath))
+                        using (Stream videoInputStream = await response.Content.ReadAsStreamAsync())
                         {
-                            long inputRead = 0;
-                            StepProgress = 0;
-
-                            int readBytes;
-                            var buffer = new byte[4096];
-                            do
+                            cancellationToken.ThrowIfCancellationRequested();
+                            using (FileStream videoOutputFileStream = File.OpenWrite(videoOutputFilePath))
                             {
-                                readBytes = await videoInputStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
-                                await videoOutputFileStream.WriteAsync(buffer, 0, readBytes, cancellationToken);
+                                int readBytes;
+                                var buffer = new byte[4096];
+                                do
+                                {
+                                    readBytes = await videoInputStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
+                                    await videoOutputFileStream.WriteAsync(buffer, 0, readBytes, cancellationToken);
 
-                                inputRead += readBytes;
-                                StepProgress = (float)inputRead / inputLength;
+                                    DownloadedBytes += readBytes;
+                                }
+                                while (readBytes != 0);
                             }
-                            while (readBytes != 0);
                         }
                     }
                 }
             }
+
+            _downloadedBytesSubject = null;
+            DownloadSpeed = 0;
+        }
+
+        public long RefreshDownloadSpeed()
+        {
+            if (_downloadedBytesSubject != null && !_downloadedBytesSubject.IsDisposed)
+                _downloadedBytesSubject.OnNext(DownloadedBytes);
+            return DownloadSpeed;
         }
 
         static private async Task ConvertAsync(string inputFilePath, string outputFilePath, CancellationToken cancellationToken)

@@ -8,10 +8,11 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>YoutubeDotMp3</RootNamespace>
     <AssemblyName>YoutubeDotMp3</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{60dc8134-eba5-43b8-bcc9-bb4bc16c2548};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <WarningLevel>4</WarningLevel>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -56,6 +57,7 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Converters\Base\SimpleValueConverter.cs" />
+    <Compile Include="Converters\BytesCountToMegaBytesText.cs" />
     <Compile Include="Converters\OperationStateToProgressVisibility.cs" />
     <Compile Include="Converters\OperationStateToBrush.cs" />
     <Compile Include="Converters\OperationStateToDisplayText.cs" />
@@ -99,6 +101,9 @@
   <ItemGroup>
     <PackageReference Include="MediaToolkit">
       <Version>1.1.0.1</Version>
+    </PackageReference>
+    <PackageReference Include="System.Reactive">
+      <Version>4.1.2</Version>
     </PackageReference>
     <PackageReference Include="VideoLibraryHIG">
       <Version>1.5.2</Version>
