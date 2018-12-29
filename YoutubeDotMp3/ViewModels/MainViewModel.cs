@@ -17,11 +17,13 @@ namespace YoutubeDotMp3.ViewModels
         
         private ConcurrentDictionary<Task, byte> Tasks { get; } = new ConcurrentDictionary<Task, byte>();
         private readonly SemaphoreSlimQueued _downloadSemaphore = new SemaphoreSlimQueued(10);
+        private CancellationTokenSource _cancellation;
+        private string _lastClipboardText;
 
         public ObservableCollection<OperationViewModel> Operations { get; } = new ObservableCollection<OperationViewModel>();
         public bool HasRunningOperations => Tasks.Count > 0;
 
-        private bool _isClipboardWatcherEnabled = true;
+        private bool _isClipboardWatcherEnabled;
         public bool IsClipboardWatcherEnabled
         {
             get => _isClipboardWatcherEnabled;
@@ -38,8 +40,6 @@ namespace YoutubeDotMp3.ViewModels
             }
         }
 
-        private CancellationTokenSource _cancellation;
-        private string _lastClipboardText;
         private long _downloadSpeed;
         public long DownloadSpeed
         {

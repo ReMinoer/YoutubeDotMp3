@@ -38,8 +38,8 @@ namespace YoutubeDotMp3.ViewModels
 
         private string _outputFilePath;
         private string _exceptionMessage;
-        private readonly CancellationTokenSource _cancellation;
         private Subject<long> _downloadedBytesSubject;
+        private readonly CancellationTokenSource _cancellation = new CancellationTokenSource();
 
         public SimpleCommand[] Commands { get; }
         public SimpleCommand PlayCommand { get; }
@@ -48,20 +48,26 @@ namespace YoutubeDotMp3.ViewModels
         public SimpleCommand ShowErrorMessageCommand { get; }
         
         public string YoutubeVideoUri { get; }
-        public YouTubeVideo YoutubeVideo { get; private set; }
+
+        private YouTubeVideo _youtubeVideo;
+        public YouTubeVideo YoutubeVideo
+        {
+            get => _youtubeVideo;
+            private set => Set(ref _youtubeVideo, value);
+        }
 
         private string _title;
         public string Title
         {
             get => _title ?? "<...>";
-            set => Set(ref _title, value);
+            private set => Set(ref _title, value);
         }
 
         private State _currentState = State.Initializing;
         public State CurrentState
         {
             get => _currentState;
-            set
+            private set
             {
                 if (!Set(ref _currentState, value))
                     return;
@@ -103,8 +109,6 @@ namespace YoutubeDotMp3.ViewModels
                 CancelCommand = new SimpleCommand(Cancel, CanCancel),
                 ShowErrorMessageCommand = new SimpleCommand(ShowErrorMessage, CanShowErrorMessage)
             };
-
-            _cancellation = new CancellationTokenSource();
         }
 
         static public OperationViewModel FromYoutubeUri(string youtubeVideoUri)
