@@ -100,7 +100,12 @@ namespace YoutubeDotMp3.ViewModels
 
             Operations.Insert(0, operation);
 
-            await operation.InitializeAsync(cancellationToken);
+            if (!await operation.InitializeAsync(cancellationToken))
+            {
+                await downloadSemaphoreWaitTask;
+                _downloadSemaphore.Release();
+                return;
+            }
 
             Task runTask = operation.RunAsync(cancellationToken, _downloadSemaphore, downloadSemaphoreWaitTask);
             Tasks.GetOrAdd(runTask, default(byte));

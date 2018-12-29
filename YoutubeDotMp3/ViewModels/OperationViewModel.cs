@@ -37,8 +37,8 @@ namespace YoutubeDotMp3.ViewModels
         static private readonly Regex YoutubeVideoAddressRegex = new Regex(YoutubeVideoAddressRegexPattern, RegexOptions.Compiled);
 
         private string _outputFilePath;
-        private string _exceptionMessage;
         private Subject<long> _downloadedBytesSubject;
+        private Exception _exception;
         private readonly CancellationTokenSource _cancellation = new CancellationTokenSource();
 
         public SimpleCommand[] Commands { get; }
@@ -118,21 +118,47 @@ namespace YoutubeDotMp3.ViewModels
             return YoutubeVideoAddressRegex.IsMatch(youtubeVideoUrl) ? new OperationViewModel(youtubeVideoUrl) : null;
         }
 
-        public async Task InitializeAsync(CancellationToken cancellationToken)
+        public async Task<bool> InitializeAsync(CancellationToken cancellationToken)
         {
             cancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cancellation.Token).Token;
             cancellationToken.ThrowIfCancellationRequested();
-            
-            YoutubeVideo = await YouTube.Default.GetVideoAsync(YoutubeVideoUrl);
 
-            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                try
+                {
+                    YoutubeVideo = await YouTube.Default.GetVideoAsync(YoutubeVideoUrl);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    Title = "<Invalid URL>";
+                    _exception = ex;
+                    CurrentState = State.Failed;
+                    return false;
+                }
 
-            Title = YoutubeVideo.Title.Substring(0, YoutubeVideo.Title.Length - " - Youtube".Length);
+                cancellationToken.ThrowIfCancellationRequested();
 
-            _outputFilePath = GetValidFileName(OutputDirectoryPath, Title, ".mp3");
-            File.Create(_outputFilePath);
+                Title = YoutubeVideo.Title.Substring(0, YoutubeVideo.Title.Length - " - Youtube".Length);
 
-            CurrentState = State.InQueue;
+                _outputFilePath = GetValidFileName(OutputDirectoryPath, Title, ".mp3");
+                File.Create(_outputFilePath);
+
+                CurrentState = State.InQueue;
+            }
+            catch (OperationCanceledException)
+            {
+                CurrentState = State.Canceled;
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _exception = ex;
+                CurrentState = State.Failed;
+                return false;
+            }
+
+            return true;
         }
 
         public async Task RunAsync(CancellationToken cancellationToken, SemaphoreSlimQueued downloadSemaphore, Task downloadSemaphoreWaitTask)
@@ -152,6 +178,7 @@ namespace YoutubeDotMp3.ViewModels
                 finally
                 {
                     downloadSemaphore.Release();
+                    downloadSemaphore = null;
                 }
 
                 CurrentState = State.ConvertingToAudio;
@@ -165,17 +192,18 @@ namespace YoutubeDotMp3.ViewModels
             }
             catch (Exception ex)
             {
-                var exceptionMessageBuilder = new StringBuilder();
-                exceptionMessageBuilder.AppendLine(ex.Message);
-                exceptionMessageBuilder.AppendLine();
-                exceptionMessageBuilder.AppendLine(ex.StackTrace);
-
-                _exceptionMessage = exceptionMessageBuilder.ToString();
-
+                _exception = ex;
                 CurrentState = State.Failed;
             }
             finally
             {
+                if (downloadSemaphore != null)
+                {
+                    if (!downloadSemaphoreWaitTask.IsCompleted)
+                        await downloadSemaphoreWaitTask;
+                    downloadSemaphore.Release();
+                }
+
                 if (File.Exists(videoTempFilePath))
                     File.Delete(videoTempFilePath);
 
@@ -313,7 +341,12 @@ namespace YoutubeDotMp3.ViewModels
         private bool CanShowErrorMessage() => CurrentState == State.Failed;
         private void ShowErrorMessage()
         {
-            MessageBox.Show(_exceptionMessage, "Error Message", MessageBoxButton.OK, MessageBoxImage.Error);
+            var exceptionMessageBuilder = new StringBuilder();
+            exceptionMessageBuilder.AppendLine(_exception.Message);
+            exceptionMessageBuilder.AppendLine();
+            exceptionMessageBuilder.AppendLine(_exception.StackTrace);
+
+            MessageBox.Show(exceptionMessageBuilder.ToString(), "Error Message", MessageBoxButton.OK, MessageBoxImage.Error);
         }
 
         static private string GetValidFileName(string directory, string title, string extension)
