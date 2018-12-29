@@ -14,7 +14,7 @@ namespace YoutubeDotMp3.ViewModels
     {
         public const string ApplicationName = "Youtube.Mp3";
 
-        private readonly SemaphoreSlimQueued _operationSemaphore = new SemaphoreSlimQueued(Environment.ProcessorCount - 1);
+        private readonly SemaphoreSlimQueued _downloadSemaphore = new SemaphoreSlimQueued(1);
         private ConcurrentDictionary<Task, byte> Tasks { get; } = new ConcurrentDictionary<Task, byte>();
 
         public ObservableCollection<OperationViewModel> Operations { get; } = new ObservableCollection<OperationViewModel>();
@@ -85,23 +85,20 @@ namespace YoutubeDotMp3.ViewModels
         
         private async Task AddOperation(string url, CancellationToken cancellationToken)
         {
+            Task downloadSemaphoreWaitTask = _downloadSemaphore.WaitAsync(cancellationToken);
             OperationViewModel operation = OperationViewModel.FromYoutubeUri(url);
             if (operation == null)
                 return;
 
             Operations.Insert(0, operation);
-            
-            Task semaphoreWaitTask = _operationSemaphore.WaitAsync(cancellationToken);
 
             await operation.InitializeAsync(cancellationToken);
-            await semaphoreWaitTask;
 
-            Task runTask = operation.RunAsync(cancellationToken);
+            Task runTask = operation.RunAsync(cancellationToken, _downloadSemaphore, downloadSemaphoreWaitTask);
             Tasks.GetOrAdd(runTask, default(byte));
 
             runTask.ContinueWith(t =>
             {
-                _operationSemaphore.Release();
                 Tasks.TryRemove(t, out _);
             }, CancellationToken.None).ConfigureAwait(false);
         }
@@ -124,7 +121,7 @@ namespace YoutubeDotMp3.ViewModels
         public void Dispose()
         {
             CancelAllOperations().Wait();
-            _operationSemaphore.Dispose();
+            _downloadSemaphore.Dispose();
         }
     }
 }

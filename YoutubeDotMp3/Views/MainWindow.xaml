@@ -21,6 +21,7 @@
             <converters:OperationStateToDisplayText x:Key="OperationStateToDisplayText" />
             <converters:OperationStateToMessage x:Key="OperationStateToMessage" />
             <converters:OperationStateToBrush x:Key="OperationStateToBrush" />
+            <converters:OperationStateToProgressVisibility x:Key="OperationStateToProgressVisibility" />
         </ResourceDictionary>
     </Window.Resources>
     <DockPanel>
@@ -35,8 +36,11 @@
             <ListView ItemsSource="{Binding Operations}">
                 <ListView.ItemTemplate>
                     <DataTemplate DataType="{x:Type viewModels:OperationViewModel}">
-                        <DockPanel Margin="5" ToolTip="{Binding CurrentState, Converter={StaticResource OperationStateToMessage}}" MouseLeftButtonDown="OperationOnDoubleClick">
-                            <DockPanel.ContextMenu>
+                        <StackPanel Margin="5"
+                                    Orientation="Vertical"
+                                    ToolTip="{Binding CurrentState, Converter={StaticResource OperationStateToMessage}}"
+                                    MouseLeftButtonDown="OperationOnDoubleClick">
+                            <StackPanel.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="Play" Command="{Binding PlayCommand}" />
                                     <MenuItem Header="Show in Explorer..." Command="{Binding ShowInExplorerCommand}" />
@@ -44,16 +48,35 @@
                                     <MenuItem Header="Cancel" Command="{Binding CancelCommand}" />
                                     <MenuItem Header="Show Error Message..." Command="{Binding ShowErrorMessageCommand}" />
                                 </ContextMenu>
-                            </DockPanel.ContextMenu>
-                            <WrapPanel DockPanel.Dock="Right">
-                                <Ellipse Width="9" Height="9" Stroke="Gray" StrokeThickness="0.5" Fill="{Binding CurrentState, Converter={StaticResource OperationStateToBrush}}" Margin="3" />
-                                <TextBlock Text="{Binding CurrentState, Converter={StaticResource OperationStateToDisplayText}}" />
-                            </WrapPanel>
-                            <StackPanel Orientation="Vertical">
+                            </StackPanel.ContextMenu>
+                            <DockPanel>
+                                <DockPanel DockPanel.Dock="Right">
+                                    <TextBlock DockPanel.Dock="Right"
+                                               Text="{Binding CurrentState, Converter={StaticResource OperationStateToDisplayText}}"
+                                               />
+                                    <Ellipse Width="9"
+                                             Height="9"
+                                             Margin="3"
+                                             Stroke="Gray"
+                                             StrokeThickness="0.5"
+                                             Fill="{Binding CurrentState, Converter={StaticResource OperationStateToBrush}}"
+                                             VerticalAlignment="Top"
+                                             HorizontalAlignment="Right"
+                                             />
+                                </DockPanel>
                                 <TextBlock Text="{Binding Title}" />
+                            </DockPanel>
+                            <DockPanel>
+                                <ProgressBar DockPanel.Dock="Right"
+                                             Value="{Binding StepProgress}"
+                                             Maximum="1"
+                                             Width="100"
+                                             Height="5"
+                                             Visibility="{Binding CurrentState, Converter={StaticResource OperationStateToProgressVisibility}}"
+                                />
                                 <TextBlock Text="{Binding YoutubeVideoUri}" Foreground="Gray" FontSize="8" />
-                            </StackPanel>
-                        </DockPanel>
+                            </DockPanel>
+                        </StackPanel>
                     </DataTemplate>
                 </ListView.ItemTemplate>
                 <ListView.ItemContainerStyle>

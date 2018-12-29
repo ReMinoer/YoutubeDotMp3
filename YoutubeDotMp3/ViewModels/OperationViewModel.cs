@@ -33,7 +33,7 @@ namespace YoutubeDotMp3.ViewModels
 
         private const string YoutubeVideoAddressRegexPattern = @"^(?:https?:\/\/)?(?:(?:www\.)?youtube\.com\/watch\?v=[\w\-]*(?:\&.*)?|youtu\.be\/([\w\-]*)?:\?.*?)$";
         static private readonly Regex YoutubeVideoAddressRegex = new Regex(YoutubeVideoAddressRegexPattern, RegexOptions.Compiled);
-        
+
         private string _outputFilePath;
         private string _exceptionMessage;
         private readonly CancellationTokenSource _cancellation;
@@ -62,10 +62,18 @@ namespace YoutubeDotMp3.ViewModels
             {
                 if (!Set(ref _currentState, value))
                     return;
-                
+
+                StepProgress = 0;
                 foreach (SimpleCommand command in Commands)
                     command.UpdateCanExecute();
             }
+        }
+
+        private float _stepProgress;
+        public float StepProgress
+        {
+            get => _stepProgress;
+            set => Set(ref _stepProgress, value);
         }
 
         private OperationViewModel(string youtubeVideoUri)
@@ -105,17 +113,24 @@ namespace YoutubeDotMp3.ViewModels
             CurrentState = State.InQueue;
         }
 
-        public async Task RunAsync(CancellationToken cancellationToken)
+        public async Task RunAsync(CancellationToken cancellationToken, SemaphoreSlimQueued downloadSemaphore, Task downloadSemaphoreWaitTask)
         {
             cancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cancellation.Token).Token;
             cancellationToken.ThrowIfCancellationRequested();
-
+            
             string videoTempFilePath = Path.GetTempFileName();
-
             try
             {
-                CurrentState = State.DownloadingVideo;
-                await DownloadAsync(YoutubeVideo, videoTempFilePath, cancellationToken);
+                await downloadSemaphoreWaitTask;
+                try
+                {
+                    CurrentState = State.DownloadingVideo;
+                    await DownloadAsync(YoutubeVideo, videoTempFilePath, cancellationToken);
+                }
+                finally
+                {
+                    downloadSemaphore.Release();
+                }
 
                 CurrentState = State.ConvertingToAudio;
                 await ConvertAsync(videoTempFilePath, _outputFilePath, cancellationToken);
@@ -147,29 +162,40 @@ namespace YoutubeDotMp3.ViewModels
             }
         }
 
-        static private async Task DownloadAsync(YouTubeVideo youtubeVideo, string videoOutputFilePath, CancellationToken cancellationToken)
+        private async Task DownloadAsync(YouTubeVideo youtubeVideo, string videoOutputFilePath, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             
             using (var httpClient = new HttpClient())
             {
                 string requestUri = await youtubeVideo.GetUriAsync();
-                using (HttpResponseMessage httpResponseMessage = await httpClient.GetAsync(requestUri, HttpCompletionOption.ResponseContentRead, cancellationToken))
+                using (HttpResponseMessage response = await httpClient.GetAsync(requestUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
                 {
+                    response.EnsureSuccessStatusCode();
+
+                    long inputLength = response.Content.Headers.ContentLength
+                                       ?? throw new EndOfStreamException();
+
                     cancellationToken.ThrowIfCancellationRequested();
-                    using (Stream videoInputStream = await httpResponseMessage.Content.ReadAsStreamAsync())
+                    using (Stream videoInputStream = await response.Content.ReadAsStreamAsync())
                     {
                         cancellationToken.ThrowIfCancellationRequested();
                         using (FileStream videoOutputFileStream = File.OpenWrite(videoOutputFilePath))
                         {
+                            long inputRead = 0;
+                            StepProgress = 0;
+
                             int readBytes;
                             var buffer = new byte[4096];
                             do
                             {
                                 readBytes = await videoInputStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
                                 await videoOutputFileStream.WriteAsync(buffer, 0, readBytes, cancellationToken);
+
+                                inputRead += readBytes;
+                                StepProgress = (float)inputRead / inputLength;
                             }
-                            while (readBytes == buffer.Length);
+                            while (readBytes != 0);
                         }
                     }
                 }

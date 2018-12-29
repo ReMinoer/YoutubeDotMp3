@@ -56,6 +56,7 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Converters\Base\SimpleValueConverter.cs" />
+    <Compile Include="Converters\OperationStateToProgressVisibility.cs" />
     <Compile Include="Converters\OperationStateToBrush.cs" />
     <Compile Include="Converters\OperationStateToDisplayText.cs" />
     <Compile Include="Converters\OperationStateToMessage.cs" />
