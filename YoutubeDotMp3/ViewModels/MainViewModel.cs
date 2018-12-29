@@ -14,9 +14,9 @@ namespace YoutubeDotMp3.ViewModels
     public class MainViewModel : NotifyPropertyChangedBase, IDisposable
     {
         public const string ApplicationName = "Youtube.Mp3";
-
-        private readonly SemaphoreSlimQueued _downloadSemaphore = new SemaphoreSlimQueued(1);
+        
         private ConcurrentDictionary<Task, byte> Tasks { get; } = new ConcurrentDictionary<Task, byte>();
+        private readonly SemaphoreSlimQueued _downloadSemaphore = new SemaphoreSlimQueued(10);
 
         public ObservableCollection<OperationViewModel> Operations { get; } = new ObservableCollection<OperationViewModel>();
         public bool HasRunningOperations => Tasks.Count > 0;
