@@ -75,12 +75,18 @@
         </StatusBar>
         <Grid>
             <ListView ItemsSource="{Binding Operations}">
+                <ListView.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Cancel All" Command="{Binding CancelAllCommand}" />
+                    </ContextMenu>
+                </ListView.ContextMenu>
                 <ListView.ItemTemplate>
                     <DataTemplate DataType="{x:Type viewModels:OperationViewModel}">
                         <StackPanel Margin="5"
                                     Orientation="Vertical"
                                     ToolTip="{Binding CurrentState, Converter={StaticResource OperationStateToMessage}}"
-                                    MouseLeftButtonDown="OperationOnDoubleClick">
+                                    MouseLeftButtonDown="OperationOnDoubleClick"
+                                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                             <StackPanel.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="Play" Command="{Binding PlayCommand}" />
@@ -88,6 +94,9 @@
                                     <MenuItem Header="Show on Youtube..." Command="{Binding ShowOnYoutubeCommand}" />
                                     <Separator />
                                     <MenuItem Header="Cancel" Command="{Binding CancelCommand}" />
+                                    <!-- ReSharper disable once Xaml.BindingWithContextNotResolved -->
+                                    <MenuItem Header="Cancel All" Command="{Binding PlacementTarget.Tag.CancelAllCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <Separator />
                                     <MenuItem Header="Show Error Message..." Command="{Binding ShowErrorMessageCommand}" />
                                 </ContextMenu>
                             </StackPanel.ContextMenu>

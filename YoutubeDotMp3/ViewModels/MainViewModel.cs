@@ -64,19 +64,32 @@ namespace YoutubeDotMp3.ViewModels
             get => _downloadSpeed;
             private set => Set(ref _downloadSpeed, value);
         }
+        
+        public ISimpleCommand AddOperationCommand { get; }
 
-        public ICommand AddOperationCommand { get; }
+        public ISimpleCommand[] ContextualCommands { get; }
+        public ISimpleCommand CancelAllCommand { get; }
 
         public MainViewModel()
         {
             _cancellation = new CancellationTokenSource();
 
             AddOperationCommand = new SimpleCommand<bool>(AddOperation, CanAddOperation);
+            ContextualCommands = new[]
+            {
+                CancelAllCommand = new SimpleCommand(CancelAll, CanCancelAll)
+            };
 
             if (Clipboard.ContainsText())
                 _lastClipboardText = Clipboard.GetText();
             
             Observable.Interval(TimeSpan.FromSeconds(1)).Subscribe(_ => DownloadSpeed = Operations.Sum(x => x.RefreshDownloadSpeed()));
+            Observable.Interval(TimeSpan.FromSeconds(0.5)).Subscribe(_ => Application.Current.Dispatcher.Invoke(() => 
+            {
+                foreach (ISimpleCommand command in ContextualCommands)
+                    command.UpdateCanExecute();
+            }));
+
             RunClipboardWatcher();
         }
 
@@ -84,6 +97,12 @@ namespace YoutubeDotMp3.ViewModels
         private void AddOperation()
         {
             AddOperation(InputUrl, _cancellation.Token).ConfigureAwait(false);
+        }
+
+        private bool CanCancelAll() => Operations.Any(x => x.IsRunning);
+        private void CancelAll()
+        {
+            CancelAllOperations();
         }
 
         private void RunClipboardWatcher()
@@ -140,24 +159,28 @@ namespace YoutubeDotMp3.ViewModels
             }, CancellationToken.None).ConfigureAwait(false);
         }
 
-        public async Task CancelAllOperations()
+        private void CancelAllOperations()
         {
             if (_cancellation != null)
             {
                 _cancellation.Cancel();
                 _cancellation.Dispose();
-                _cancellation = null;
+                _cancellation = new CancellationTokenSource();
             }
 
             foreach (OperationViewModel operation in Operations)
                 operation.Cancel();
+        }
 
+        public async Task CancelAllBeforeQuit()
+        {
+            CancelAllOperations();
             await Task.WhenAll(Tasks.Keys.ToArray());
         }
 
         public void Dispose()
         {
-            CancelAllOperations().Wait();
+            CancelAllBeforeQuit().Wait();
             _downloadSemaphore.Dispose();
         }
     }
