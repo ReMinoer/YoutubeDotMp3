@@ -188,6 +188,8 @@ namespace YoutubeDotMp3.ViewModels
             }
             finally
             {
+                DownloadSpeed = 0;
+
                 if (downloadSemaphore != null)
                 {
                     if (!downloadSemaphoreWaitTask.IsCompleted)
