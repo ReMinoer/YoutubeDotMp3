@@ -5,7 +5,6 @@ using System.Net.Http;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -32,10 +31,7 @@ namespace YoutubeDotMp3.ViewModels
 
         public const string OutputDirectory = nameof(YoutubeDotMp3);
         static public string OutputDirectoryPath { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), OutputDirectory);
-
-        private const string YoutubeVideoAddressRegexPattern = @"^(?:https?:\/\/)?(?:(?:www\.)?youtube\.com\/watch\?.*v=([\w\-]*)?(?:\&.*)?.*|youtu\.be\/([\w\-]*)?:\?.*?)$";
-        static private readonly Regex YoutubeVideoAddressRegex = new Regex(YoutubeVideoAddressRegexPattern, RegexOptions.Compiled);
-
+        
         private string _outputFilePath;
         private Subject<long> _downloadedBytesSubject;
         private Exception _exception;
@@ -99,7 +95,7 @@ namespace YoutubeDotMp3.ViewModels
             private set => Set(ref _downloadSpeed, value);
         }
 
-        private OperationViewModel(string youtubeVideoUrl)
+        public OperationViewModel(string youtubeVideoUrl)
         {
             YoutubeVideoUrl = youtubeVideoUrl;
 
@@ -111,11 +107,6 @@ namespace YoutubeDotMp3.ViewModels
                 CancelCommand = new SimpleCommand(Cancel, CanCancel),
                 ShowErrorMessageCommand = new SimpleCommand(ShowErrorMessage, CanShowErrorMessage)
             };
-        }
-
-        static public OperationViewModel FromYoutubeUri(string youtubeVideoUrl)
-        {
-            return YoutubeVideoAddressRegex.IsMatch(youtubeVideoUrl) ? new OperationViewModel(youtubeVideoUrl) : null;
         }
 
         public async Task<bool> InitializeAsync(CancellationToken cancellationToken)

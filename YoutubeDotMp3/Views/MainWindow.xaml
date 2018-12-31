@@ -34,7 +34,34 @@
                                           IsChecked="{Binding IsClipboardWatcherEnabled}" />
             <DockPanel>
                 <Label DockPanel.Dock="Left" VerticalAlignment="Center">Youtube URL</Label>
-                <TextBox x:Name="UrlTextBox" MaxLines="1" KeyDown="UrlTextBoxOnKeyDown" />
+                <TextBox MaxLines="1">
+                    <TextBox.Text>
+                        <Binding Path="InputUrl"
+                                 Mode="OneWayToSource"
+                                 UpdateSourceTrigger="PropertyChanged"
+                                 NotifyOnValidationError="True"
+                                 >
+                            <Binding.ValidationRules>
+                                <x:Static Member="viewModels:MainViewModel.InputUrlValidationRule" />
+                            </Binding.ValidationRules>
+                        </Binding>
+                    </TextBox.Text>
+                    <TextBox.InputBindings>
+                        <KeyBinding Command="{Binding AddOperationCommand}"
+                                    CommandParameter="{Binding Path=(Validation.HasError), RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type TextBox}}}"
+                                    Key="Return"
+                                    />
+                    </TextBox.InputBindings>
+                    <TextBox.Style>
+                        <Style TargetType="TextBox">
+                            <Style.Triggers>
+                                <Trigger Property="Validation.HasError" Value="True">
+                                    <Setter Property="ToolTip" Value="{Binding RelativeSource={x:Static RelativeSource.Self}, Path=(Validation.Errors)[0].ErrorContent}" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBox.Style>
+                </TextBox>
             </DockPanel>
         </DockPanel>
         <StatusBar DockPanel.Dock="Bottom">

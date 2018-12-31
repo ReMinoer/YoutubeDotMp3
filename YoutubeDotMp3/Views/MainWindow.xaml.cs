@@ -51,12 +51,6 @@ namespace YoutubeDotMp3.Views
             _viewModel.Dispose();
         }
 
-        private async void UrlTextBoxOnKeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Return)
-                await _viewModel.AddOperation(UrlTextBox.Text);
-        }
-
         private void OperationOnDoubleClick(object sender, MouseButtonEventArgs e)
         {
             if (e.ClickCount >= 2)

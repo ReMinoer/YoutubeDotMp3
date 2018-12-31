@@ -62,6 +62,9 @@
     <Compile Include="Converters\OperationStateToBrush.cs" />
     <Compile Include="Converters\OperationStateToDisplayText.cs" />
     <Compile Include="Converters\OperationStateToMessage.cs" />
+    <Compile Include="ValidationRules\RegexValidationRule.cs" />
+    <Compile Include="ValidationRules\Base\SimpleValidationRuleBase.cs" />
+    <Compile Include="ViewModels\Utils\ISimpleCommand.cs" />
     <Compile Include="ViewModels\Utils\SemaphoreSlimQueued.cs" />
     <Compile Include="ViewModels\Utils\SimpleCommand.cs" />
     <Compile Include="Views\MainWindow.xaml.cs">
