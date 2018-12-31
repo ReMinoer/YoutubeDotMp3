@@ -133,6 +133,10 @@ namespace YoutubeDotMp3.ViewModels
                 Title = YoutubeVideo.Title.Substring(0, YoutubeVideo.Title.Length - " - Youtube".Length);
 
                 _outputFilePath = GetValidFileName(OutputDirectoryPath, Title, ".mp3");
+
+                if (!Directory.Exists(OutputDirectoryPath))
+                    Directory.CreateDirectory(OutputDirectoryPath);
+
                 File.Create(_outputFilePath);
 
                 CurrentState = State.InQueue;
@@ -267,9 +271,6 @@ namespace YoutubeDotMp3.ViewModels
 
                     var videoFile = new MediaFile { Filename = inputFilePath };
                     var outputFile = new MediaFile { Filename = outputFilePath };
-
-                    if (!Directory.Exists(OutputDirectoryPath))
-                        Directory.CreateDirectory(OutputDirectoryPath);
 
                     cancellationToken.ThrowIfCancellationRequested();
 
