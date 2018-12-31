@@ -70,6 +70,9 @@ namespace YoutubeDotMp3.ViewModels
         public ISimpleCommand[] ContextualCommands { get; }
         public ISimpleCommand CancelAllCommand { get; }
 
+        private IDisposable _downloadSpeedRefresh;
+        private IDisposable _contextualCommandsRefresh;
+
         public MainViewModel()
         {
             _cancellation = new CancellationTokenSource();
@@ -82,9 +85,9 @@ namespace YoutubeDotMp3.ViewModels
 
             if (Clipboard.ContainsText())
                 _lastClipboardText = Clipboard.GetText();
-            
-            Observable.Interval(TimeSpan.FromSeconds(1)).Subscribe(_ => DownloadSpeed = Operations.Sum(x => x.RefreshDownloadSpeed()));
-            Observable.Interval(TimeSpan.FromSeconds(0.5)).Subscribe(_ => Application.Current.Dispatcher.Invoke(() => 
+
+            _downloadSpeedRefresh = Observable.Interval(TimeSpan.FromSeconds(1)).Subscribe(_ => DownloadSpeed = Operations.Sum(x => x.RefreshDownloadSpeed()));
+            _contextualCommandsRefresh = Observable.Interval(TimeSpan.FromSeconds(0.5)).Subscribe(_ => Application.Current.Dispatcher.Invoke(() => 
             {
                 foreach (ISimpleCommand command in ContextualCommands)
                     command.UpdateCanExecute();
@@ -180,6 +183,9 @@ namespace YoutubeDotMp3.ViewModels
 
         public void Dispose()
         {
+            _downloadSpeedRefresh?.Dispose();
+            _contextualCommandsRefresh?.Dispose();
+
             CancelAllBeforeQuit().Wait();
             _downloadSemaphore.Dispose();
         }
