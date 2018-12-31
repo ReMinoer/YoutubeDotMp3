@@ -74,6 +74,8 @@ namespace YoutubeDotMp3.ViewModels
             }
         }
         
+        public bool IsRunning => CurrentState != State.Completed && CurrentState != State.Failed && CurrentState != State.Cancelling && CurrentState != State.Canceled;
+        
         private long _downloadedBytes;
         public long DownloadedBytes
         {
@@ -295,7 +297,7 @@ namespace YoutubeDotMp3.ViewModels
             cancellationToken.ThrowIfCancellationRequested();
         }
         
-        private bool CanCancel() => CurrentState != State.Completed && CurrentState != State.Failed && CurrentState != State.Cancelling && CurrentState != State.Canceled;
+        private bool CanCancel() => IsRunning;
         public void Cancel()
         {
             _cancellation.Cancel();
