@@ -23,23 +23,23 @@ namespace YoutubeDotMp3.ViewModels.Utils
             _semaphoreSlim = new SemaphoreSlim(initialCount, maxCount);
         }
 
-        public Task WaitAsync() => EnqueueAsync(x => x.WaitAsync(), CancellationToken.None);
-        public Task WaitAsync(CancellationToken cancellationToken) => EnqueueAsync(x => x.WaitAsync(cancellationToken), cancellationToken);
-        public Task<bool> WaitAsync(TimeSpan timeout) => EnqueueAsync(x => x.WaitAsync(timeout), CancellationToken.None);
-        public Task<bool> WaitAsync(TimeSpan timeout, CancellationToken cancellationToken) => EnqueueAsync(x => x.WaitAsync(timeout, cancellationToken), cancellationToken);
-        public Task<bool> WaitAsync(int millisecondsTimeout) => EnqueueAsync(x => x.WaitAsync(millisecondsTimeout), CancellationToken.None);
-        public Task<bool> WaitAsync(int millisecondsTimeout, CancellationToken cancellationToken) => EnqueueAsync(x => x.WaitAsync(millisecondsTimeout, cancellationToken), cancellationToken);
+        public Task WaitAsync() => EnqueueAsync(x => x.WaitAsync());
+        public Task WaitAsync(CancellationToken cancellationToken) => EnqueueAsync(x => x.WaitAsync(cancellationToken));
+        public Task<bool> WaitAsync(TimeSpan timeout) => EnqueueAsync(x => x.WaitAsync(timeout));
+        public Task<bool> WaitAsync(TimeSpan timeout, CancellationToken cancellationToken) => EnqueueAsync(x => x.WaitAsync(timeout, cancellationToken));
+        public Task<bool> WaitAsync(int millisecondsTimeout) => EnqueueAsync(x => x.WaitAsync(millisecondsTimeout));
+        public Task<bool> WaitAsync(int millisecondsTimeout, CancellationToken cancellationToken) => EnqueueAsync(x => x.WaitAsync(millisecondsTimeout, cancellationToken));
 
-        private Task EnqueueAsync(Func<SemaphoreSlim, Task> semaphoreTaskFunc, CancellationToken cancellationToken)
+        private Task EnqueueAsync(Func<SemaphoreSlim, Task> semaphoreTaskFunc)
         {
             return EnqueueAsync(async x =>
             {
                 await semaphoreTaskFunc(x);
                 return true;
-            }, cancellationToken);
+            });
         }
 
-        private Task<bool> EnqueueAsync(Func<SemaphoreSlim, Task<bool>> semaphoreTaskFunc, CancellationToken cancellationToken)
+        private Task<bool> EnqueueAsync(Func<SemaphoreSlim, Task<bool>> semaphoreTaskFunc)
         {
             var queuedTcs = new TaskCompletionSource<bool>();
             _queue.Enqueue(queuedTcs);
@@ -47,8 +47,8 @@ namespace YoutubeDotMp3.ViewModels.Utils
             semaphoreTaskFunc(_semaphoreSlim).ContinueWith(t =>
             {
                 if (_queue.TryDequeue(out TaskCompletionSource<bool> dequeuedTcs))
-                    dequeuedTcs.SetResult(t.Result);
-            }, cancellationToken, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.FromCurrentSynchronizationContext());
+                    dequeuedTcs.SetResult(!t.IsFaulted && !t.IsCanceled && t.Result);
+            });
 
             return queuedTcs.Task;
         }
