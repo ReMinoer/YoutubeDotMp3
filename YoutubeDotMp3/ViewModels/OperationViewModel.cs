@@ -30,7 +30,7 @@ namespace YoutubeDotMp3.ViewModels
         static public string OutputDirectoryPath { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), OutputDirectory);
         
         private Subject<long> _downloadedBytesSubject;
-        private readonly CancellationTokenSource _cancellation = new CancellationTokenSource();
+        private CancellationTokenSource _cancellation = new CancellationTokenSource();
         private CancellationToken CancellationToken => _cancellation.Token;
         
         public string YoutubeVideoUrl { get; }
@@ -42,10 +42,13 @@ namespace YoutubeDotMp3.ViewModels
             private set => Set(ref _youtubeVideo, value);
         }
 
+        private const string UnknownTitle = "<...>";
+        private const string FailTitle = "<Invalid URL>";
+
         private string _title;
         public string Title
         {
-            get => _title ?? "<...>";
+            get => _title ?? UnknownTitle;
             private set => Set(ref _title, value);
         }
 
@@ -107,6 +110,12 @@ namespace YoutubeDotMp3.ViewModels
 
         public async Task RunAsync(SemaphoreSlimQueued downloadSemaphore)
         {
+            CurrentState = State.Initializing;
+            DownloadedBytes = 0;
+            VideoSize = long.MaxValue;
+            DownloadSpeed = 0;
+            Exception = null;
+
             string videoTempFilePath = Path.GetTempFileName();
             try
             {
@@ -154,36 +163,43 @@ namespace YoutubeDotMp3.ViewModels
             }
         }
 
-        public async Task InitializeAsync(CancellationToken cancellationToken)
+        private async Task InitializeAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            try
+            if (Title == UnknownTitle || Title == FailTitle)
+                Title = null;
+
+            if (YoutubeVideo == null)
             {
-                YoutubeVideo = await YouTube.Default.GetVideoAsync(YoutubeVideoUrl);
-            }
-            catch (InvalidOperationException)
-            {
-                Title = "<Invalid URL>";
-                throw;
+                try
+                {
+                    YoutubeVideo = await YouTube.Default.GetVideoAsync(YoutubeVideoUrl);
+                }
+                catch (InvalidOperationException)
+                {
+                    Title = FailTitle;
+                    throw;
+                }
             }
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            Title = YoutubeVideo.Title.Substring(0, YoutubeVideo.Title.Length - " - Youtube".Length);
+            if (Title == null || OutputFilePath == null)
+            {
+                Title = YoutubeVideo.Title.Substring(0, YoutubeVideo.Title.Length - " - Youtube".Length);
+                OutputFilePath = GetValidFileName(OutputDirectoryPath, Title, ".mp3");
+            }
 
             if (!Directory.Exists(OutputDirectoryPath))
                 Directory.CreateDirectory(OutputDirectoryPath);
 
-            OutputFilePath = GetValidFileName(OutputDirectoryPath, Title, ".mp3");
             File.Create(OutputFilePath);
         }
 
         private async Task DownloadAsync(YouTubeVideo youtubeVideo, string videoOutputFilePath, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            DownloadedBytes = 0;
-            VideoSize = long.MaxValue;
 
             using (_downloadedBytesSubject = new Subject<long>())
             using (_downloadedBytesSubject.Scan((size: 0L, speed: 0L), (previous, currentSize) => (currentSize, currentSize - previous.size))
@@ -271,6 +287,9 @@ namespace YoutubeDotMp3.ViewModels
                 return;
 
             _cancellation.Cancel();
+            _cancellation.Dispose();
+            _cancellation = new CancellationTokenSource();
+
             CurrentState = State.Cancelling;
         }
 

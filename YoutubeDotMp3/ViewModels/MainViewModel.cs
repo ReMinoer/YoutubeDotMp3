@@ -120,6 +120,7 @@ namespace YoutubeDotMp3.ViewModels
         public ISimpleCommand ShowOnYoutubeCommand { get; }
         public ISimpleCommand CancelCommand { get; }
         public ISimpleCommand CancelAllCommand { get; }
+        public ISimpleCommand RetryCommand { get; }
         public ISimpleCommand ShowErrorMessageCommand { get; }
 
         private readonly IDisposable _downloadSpeedRefresh;
@@ -135,6 +136,7 @@ namespace YoutubeDotMp3.ViewModels
                 ShowOnYoutubeCommand = new SimpleCommand(ShowOnYoutube, CanShowOnYoutube),
                 CancelCommand = new SimpleCommand(Cancel, CanCancel),
                 CancelAllCommand = new SimpleCommand(CancelAll, CanCancelAll),
+                RetryCommand = new SimpleCommand(Retry, CanRetry),
                 ShowErrorMessageCommand = new SimpleCommand(ShowErrorMessage, CanShowErrorMessage)
             };
 
@@ -165,6 +167,11 @@ namespace YoutubeDotMp3.ViewModels
             var operation = new OperationViewModel(youtubeVideoUrl);
             Operations.Insert(0, operation);
 
+            await RunOperationAsync(operation);
+        }
+
+        private async Task RunOperationAsync(OperationViewModel operation)
+        {
             Task runTask = operation.RunAsync(_downloadSemaphore);
             Tasks.GetOrAdd(runTask, default(byte));
             await runTask.ContinueWith(t => Tasks.TryRemove(runTask, out _), CancellationToken.None);
@@ -292,6 +299,14 @@ namespace YoutubeDotMp3.ViewModels
             exceptionMessageBuilder.AppendLine(SelectedOperation.Exception.StackTrace);
 
             MessageBox.Show(exceptionMessageBuilder.ToString(), "Error Message", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+
+        private bool CanRetry() => SelectedOperation != null
+                                   && (SelectedOperation.CurrentState == OperationViewModel.State.Failed
+                                       || SelectedOperation.CurrentState == OperationViewModel.State.Canceled);
+        private async void Retry()
+        {
+            await RunOperationAsync(SelectedOperation);
         }
 
         public async Task PreDisposeAsync()

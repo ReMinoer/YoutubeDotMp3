@@ -87,6 +87,7 @@
                         <MenuItem Header="Cancel" Command="{Binding CancelCommand}" />
                         <MenuItem Header="Cancel All" Command="{Binding CancelAllCommand}" />
                         <Separator />
+                        <MenuItem Header="Retry" Command="{Binding RetryCommand}" />
                         <MenuItem Header="Show Error Message..." Command="{Binding ShowErrorMessageCommand}" />
                     </ContextMenu>
                 </ListView.ContextMenu>
