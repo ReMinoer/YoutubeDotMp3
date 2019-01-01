@@ -62,6 +62,7 @@
     <Compile Include="Converters\OperationStateToBrush.cs" />
     <Compile Include="Converters\OperationStateToDisplayText.cs" />
     <Compile Include="Converters\OperationStateToMessage.cs" />
+    <Compile Include="ValidationRules\OrValidationRule.cs" />
     <Compile Include="ValidationRules\RegexValidationRule.cs" />
     <Compile Include="ValidationRules\Base\SimpleValidationRuleBase.cs" />
     <Compile Include="ViewModels\Utils\ISimpleCommand.cs" />
@@ -102,6 +103,9 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Google.Apis.YouTube.v3">
+      <Version>1.36.1.1226</Version>
+    </PackageReference>
     <PackageReference Include="MediaToolkit">
       <Version>1.1.0.1</Version>
     </PackageReference>

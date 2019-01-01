@@ -2,13 +2,20 @@
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using Google.Apis.Auth.OAuth2;
+using Google.Apis.Services;
+using Google.Apis.Util.Store;
+using Google.Apis.YouTube.v3;
+using Google.Apis.YouTube.v3.Data;
 using YoutubeDotMp3.ValidationRules;
 using YoutubeDotMp3.ViewModels.Base;
 using YoutubeDotMp3.ViewModels.Utils;
@@ -18,10 +25,25 @@ namespace YoutubeDotMp3.ViewModels
     public class MainViewModel : NotifyPropertyChangedBase, IDisposable
     {
         public const string ApplicationName = "Youtube.Mp3";
+        public const string FriendlyApplicationName = "YoutubeDotMp3";
 
         static public readonly Regex YoutubeVideoAddressRegex = new Regex(
             @"^(?:(?:https?:\/\/)?(?:(?:www\.)?youtube\.com\/watch\?.*v=([\w\-]*)?(?:\&.*)?.*|youtu\.be\/([\w\-]*)?:\?.*?))?$",
             RegexOptions.Compiled);
+        
+        static public readonly Regex YoutubePlaylistAddressRegex = new Regex(
+            @"^(?:(?:https?:\/\/)?(?:(?:www\.)?youtube\.com\/playlist\?.*list=([\w\-]*)?(?:\&.*)?.*))?$",
+            RegexOptions.Compiled);
+
+        static public readonly ValidationRule InputUrlValidationRule = new OrValidationRule
+        {
+            ErrorMessage = "Input must be a Youtube video URL",
+            Rules =
+            {
+                new RegexValidationRule { Regex = YoutubeVideoAddressRegex },
+                new RegexValidationRule { Regex = YoutubePlaylistAddressRegex }
+            }
+        };
         
         private ConcurrentDictionary<Task, byte> Tasks { get; } = new ConcurrentDictionary<Task, byte>();
         private readonly SemaphoreSlimQueued _downloadSemaphore = new SemaphoreSlimQueued(10);
@@ -32,7 +54,6 @@ namespace YoutubeDotMp3.ViewModels
         private readonly CancellationTokenSource _applicationCancellation = new CancellationTokenSource();
         private CancellationTokenSource _operationCancellation = new CancellationTokenSource();
 
-        static public readonly ValidationRule InputUrlValidationRule = new RegexValidationRule { Regex = YoutubeVideoAddressRegex, ErrorMessage = "Input must be a Youtube video URL" };
         private string _lastClipboardText;
         
         private string _inputUrl = string.Empty;
@@ -98,6 +119,13 @@ namespace YoutubeDotMp3.ViewModels
         private bool CanAddOperation(bool hasError) => !hasError && !string.IsNullOrEmpty(InputUrl);
         private async void AddOperation()
         {
+            Match playlistRegexMatch = YoutubePlaylistAddressRegex.Match(InputUrl);
+            if (playlistRegexMatch.Success)
+            {
+                await AddOperationsFromPlaylist(playlistRegexMatch.Groups[1].Value, _operationCancellation.Token);
+                return;
+            }
+
             await AddOperationAsync(InputUrl);
         }
         
@@ -148,9 +176,47 @@ namespace YoutubeDotMp3.ViewModels
             }
         }
 
+        private async Task AddOperationsFromPlaylist(string youtubePlaylistId, CancellationToken cancellationToken)
+        {
+            try
             {
+                UserCredential credential;
+                using (var jsonStream = new MemoryStream(Encoding.UTF8.GetBytes(Properties.Resources.GoogleClientSecretsJson)))
+                {
+                    credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
+                        GoogleClientSecrets.Load(jsonStream).Secrets,
+                        new[] { YouTubeService.Scope.Youtube },
+                        "user",
+                        cancellationToken,
+                        new FileDataStore(FriendlyApplicationName)
+                    );
+                }
 
+                using (var youTubeService = new YouTubeService(new BaseClientService.Initializer { HttpClientInitializer = credential }))
+                {
+                    string pageToken = null;
+                    do
+                    {
+                        PlaylistItemsResource.ListRequest listRequest = youTubeService.PlaylistItems.List("contentDetails");
+                        listRequest.PlaylistId = youtubePlaylistId;
+                        listRequest.MaxResults = 50;
+                        listRequest.PageToken = pageToken;
+
+                        PlaylistItemListResponse listResponse = await listRequest.ExecuteAsync(cancellationToken);
+                        foreach (PlaylistItem playlistItem in listResponse.Items)
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            AddOperationAsync($"https://www.youtube.com/watch?v={playlistItem.ContentDetails.VideoId}").ConfigureAwait(false);
+                        }
+
+                        pageToken = listResponse.NextPageToken;
+                    }
+                    while (pageToken != null);
+                }
+            }
+            catch (OperationCanceledException)
             {
+            }
         }
 
         public void CancelAllOperations()

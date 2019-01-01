@@ -29,7 +29,7 @@ namespace YoutubeDotMp3.ViewModels
             Canceled
         }
 
-        public const string OutputDirectory = nameof(YoutubeDotMp3);
+        public const string OutputDirectory = MainViewModel.FriendlyApplicationName;
         static public string OutputDirectoryPath { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), OutputDirectory);
         
         private string _outputFilePath;

@@ -59,5 +59,14 @@ namespace YoutubeDotMp3.Properties {
                 resourceCulture = value;
             }
         }
+        
+        /// <summary>
+        ///   Recherche une chaîne localisée semblable à {&quot;installed&quot;:{&quot;client_id&quot;:&quot;1060009920893-dkre9h2n9nlmuvovsf2s951uf82fspun.apps.googleusercontent.com&quot;,&quot;project_id&quot;:&quot;reminoer&quot;,&quot;auth_uri&quot;:&quot;https://accounts.google.com/o/oauth2/auth&quot;,&quot;token_uri&quot;:&quot;https://www.googleapis.com/oauth2/v3/token&quot;,&quot;auth_provider_x509_cert_url&quot;:&quot;https://www.googleapis.com/oauth2/v1/certs&quot;,&quot;client_secret&quot;:&quot;-U15wKu5TjXAQtZy9E2JoQU1&quot;,&quot;redirect_uris&quot;:[&quot;urn:ietf:wg:oauth:2.0:oob&quot;,&quot;http://localhost&quot;]}}.
+        /// </summary>
+        internal static string GoogleClientSecretsJson {
+            get {
+                return ResourceManager.GetString("GoogleClientSecretsJson", resourceCulture);
+            }
+        }
     }
 }
