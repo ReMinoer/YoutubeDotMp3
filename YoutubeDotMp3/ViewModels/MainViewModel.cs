@@ -302,8 +302,8 @@ namespace YoutubeDotMp3.ViewModels
                 _applicationCancellation.Dispose();
             }
 
-            _downloadSpeedRefresh?.Dispose();
-            _contextualCommandsRefresh?.Dispose();
+            _downloadSpeedRefresh.Dispose();
+            _contextualCommandsRefresh.Dispose();
 
             CancelAll();
 

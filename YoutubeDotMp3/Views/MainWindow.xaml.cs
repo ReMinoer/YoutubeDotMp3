@@ -26,34 +26,31 @@ namespace YoutubeDotMp3.Views
                 ((ListView)sender).UnselectAll();
         }
 
-        private void OnClosing(object sender, CancelEventArgs e)
+        private async void OnClosing(object sender, CancelEventArgs e)
         {
-            if (_viewModel.HasRunningOperations)
+            if (!_viewModel.HasRunningOperations)
             {
-                if (!IsEnabled)
-                {
-                    e.Cancel = true;
-                    return;
-                }
-
-                MessageBoxResult messageBoxResult = MessageBox.Show(
-                    $"Are you sure you want to close {MainViewModel.ApplicationName}? Currently running operations will be aborted.",
-                    $"Closing {MainViewModel.ApplicationName}", 
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question,
-                    MessageBoxResult.No);
-
-                if (messageBoxResult != MessageBoxResult.Yes)
-                {
-                    e.Cancel = true;
-                    return;
-                }
-                
-                IsEnabled = false;
-                e.Cancel = true;
-                
-                _viewModel.PreDisposeAsync().ContinueWith(_ => Application.Current.Dispatcher.Invoke(Close));
+                if (IsEnabled)
+                    await _viewModel.PreDisposeAsync();
+                return;
             }
+
+            e.Cancel = true;
+            if (!IsEnabled)
+                return;
+            
+            MessageBoxResult messageBoxResult = MessageBox.Show(
+                $"Are you sure you want to close {MainViewModel.ApplicationName}? Currently running operations will be aborted.",
+                $"Closing {MainViewModel.ApplicationName}",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question,
+                MessageBoxResult.No);
+
+            if (messageBoxResult != MessageBoxResult.Yes)
+                return;
+
+            IsEnabled = false;
+            _viewModel.PreDisposeAsync().ContinueWith(_ => Application.Current.Dispatcher.Invoke(Close)).ConfigureAwait(false);
         }
 
         private void OnClosed(object sender, EventArgs e)
