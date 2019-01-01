@@ -85,7 +85,7 @@ namespace YoutubeDotMp3.ViewModels
             if (Clipboard.ContainsText())
                 _lastClipboardText = Clipboard.GetText();
 
-            _downloadSpeedRefresh = Observable.Interval(TimeSpan.FromSeconds(1)).Subscribe(_ => DownloadSpeed = Operations.Sum(x => x.RefreshDownloadSpeed()));
+            _downloadSpeedRefresh = Observable.Interval(TimeSpan.FromSeconds(1)).Subscribe(_ => DownloadSpeed = Operations.ToArray().Sum(x => x.RefreshDownloadSpeed()));
             _contextualCommandsRefresh = Observable.Interval(TimeSpan.FromSeconds(0.5)).Subscribe(_ => Application.Current.Dispatcher.Invoke(() => 
             {
                 foreach (ISimpleCommand command in ContextualCommands)
