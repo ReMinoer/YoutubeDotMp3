@@ -42,7 +42,8 @@ namespace YoutubeDotMp3.Views
                 
                 IsEnabled = false;
                 e.Cancel = true;
-                _viewModel.CancelAllBeforeQuit().ContinueWith(_ => Application.Current.Dispatcher.Invoke(Close));
+                
+                _viewModel.PreDisposeAsync().ContinueWith(_ => Application.Current.Dispatcher.Invoke(Close));
             }
         }
 

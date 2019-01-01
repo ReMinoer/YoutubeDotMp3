@@ -97,6 +97,8 @@ namespace YoutubeDotMp3.ViewModels
             private set => Set(ref _downloadSpeed, value);
         }
 
+        private CancellationToken CancellationToken => _cancellation.Token;
+
         public OperationViewModel(string youtubeVideoUrl)
         {
             YoutubeVideoUrl = youtubeVideoUrl;
@@ -111,66 +113,21 @@ namespace YoutubeDotMp3.ViewModels
             };
         }
 
-        public async Task<bool> InitializeAsync(CancellationToken cancellationToken)
+        public async Task RunAsync(SemaphoreSlimQueued downloadSemaphore)
         {
-            cancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cancellation.Token).Token;
-            cancellationToken.ThrowIfCancellationRequested();
-
-            try
-            {
-                try
-                {
-                    YoutubeVideo = await YouTube.Default.GetVideoAsync(YoutubeVideoUrl);
-                }
-                catch (InvalidOperationException ex)
-                {
-                    Title = "<Invalid URL>";
-                    _exception = ex;
-                    CurrentState = State.Failed;
-                    return false;
-                }
-
-                cancellationToken.ThrowIfCancellationRequested();
-
-                Title = YoutubeVideo.Title.Substring(0, YoutubeVideo.Title.Length - " - Youtube".Length);
-
-                _outputFilePath = GetValidFileName(OutputDirectoryPath, Title, ".mp3");
-
-                if (!Directory.Exists(OutputDirectoryPath))
-                    Directory.CreateDirectory(OutputDirectoryPath);
-
-                File.Create(_outputFilePath);
-
-                CurrentState = State.InQueue;
-            }
-            catch (OperationCanceledException)
-            {
-                CurrentState = State.Canceled;
-                return false;
-            }
-            catch (Exception ex)
-            {
-                _exception = ex;
-                CurrentState = State.Failed;
-                return false;
-            }
-
-            return true;
-        }
-
-        public async Task RunAsync(CancellationToken cancellationToken, SemaphoreSlimQueued downloadSemaphore, Task downloadSemaphoreWaitTask)
-        {
-            cancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cancellation.Token).Token;
-            cancellationToken.ThrowIfCancellationRequested();
-            
             string videoTempFilePath = Path.GetTempFileName();
             try
             {
+                Task downloadSemaphoreWaitTask = downloadSemaphore.WaitAsync(CancellationToken);
+                await InitializeAsync(CancellationToken);
+
+                CurrentState = State.InQueue;
                 await downloadSemaphoreWaitTask;
+
                 try
                 {
                     CurrentState = State.DownloadingVideo;
-                    await DownloadAsync(YoutubeVideo, videoTempFilePath, cancellationToken);
+                    await DownloadAsync(YoutubeVideo, videoTempFilePath, CancellationToken);
                 }
                 finally
                 {
@@ -179,12 +136,13 @@ namespace YoutubeDotMp3.ViewModels
                 }
 
                 CurrentState = State.ConvertingToAudio;
-                await ConvertAsync(videoTempFilePath, _outputFilePath, cancellationToken);
+                await ConvertAsync(videoTempFilePath, _outputFilePath, CancellationToken);
 
                 CurrentState = State.Completed;
             }
             catch (OperationCanceledException)
             {
+                downloadSemaphore?.Release();
                 CurrentState = State.Canceled;
             }
             catch (Exception ex)
@@ -195,20 +153,38 @@ namespace YoutubeDotMp3.ViewModels
             finally
             {
                 DownloadSpeed = 0;
-
-                if (downloadSemaphore != null)
-                {
-                    if (!downloadSemaphoreWaitTask.IsCompleted)
-                        await downloadSemaphoreWaitTask;
-                    downloadSemaphore.Release();
-                }
-
+                
                 if (File.Exists(videoTempFilePath))
                     File.Delete(videoTempFilePath);
 
                 if (CurrentState != State.Completed && File.Exists(_outputFilePath))
                     File.Delete(_outputFilePath);
             }
+        }
+
+        public async Task InitializeAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                YoutubeVideo = await YouTube.Default.GetVideoAsync(YoutubeVideoUrl);
+            }
+            catch (InvalidOperationException)
+            {
+                Title = "<Invalid URL>";
+                throw;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            Title = YoutubeVideo.Title.Substring(0, YoutubeVideo.Title.Length - " - Youtube".Length);
+
+            if (!Directory.Exists(OutputDirectoryPath))
+                Directory.CreateDirectory(OutputDirectoryPath);
+
+            _outputFilePath = GetValidFileName(OutputDirectoryPath, Title, ".mp3");
+            File.Create(_outputFilePath);
         }
 
         private async Task DownloadAsync(YouTubeVideo youtubeVideo, string videoOutputFilePath, CancellationToken cancellationToken)
@@ -256,13 +232,6 @@ namespace YoutubeDotMp3.ViewModels
             DownloadSpeed = 0;
         }
 
-        public long RefreshDownloadSpeed()
-        {
-            if (_downloadedBytesSubject != null && !_downloadedBytesSubject.IsDisposed)
-                _downloadedBytesSubject.OnNext(DownloadedBytes);
-            return DownloadSpeed;
-        }
-
         static private async Task ConvertAsync(string inputFilePath, string outputFilePath, CancellationToken cancellationToken)
         {
             await Task.Run(() =>
@@ -296,25 +265,21 @@ namespace YoutubeDotMp3.ViewModels
 
             cancellationToken.ThrowIfCancellationRequested();
         }
+
+        public long RefreshDownloadSpeed()
+        {
+            if (_downloadedBytesSubject != null && !_downloadedBytesSubject.IsDisposed)
+                _downloadedBytesSubject.OnNext(DownloadedBytes);
+            return DownloadSpeed;
+        }
         
-        private bool CanCancel() => IsRunning;
+        public bool CanCancel() => IsRunning;
         public void Cancel()
         {
             _cancellation.Cancel();
 
-            switch (CurrentState)
-            {
-                case State.Initializing:
-                case State.ConvertingToAudio:
-                case State.DownloadingVideo:
-                case State.Cancelling:
-                    CurrentState = State.Cancelling;
-                    break;
-                case State.InQueue:
-                case State.Canceled:
-                    CurrentState = State.Canceled;
-                    break;
-            }
+            if (IsRunning)
+                CurrentState = State.Cancelling;
         }
         
         public bool CanPlay() => CurrentState == State.Completed && File.Exists(_outputFilePath);

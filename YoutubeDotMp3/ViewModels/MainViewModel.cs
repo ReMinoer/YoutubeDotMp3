@@ -9,7 +9,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using YoutubeDotMp3.ValidationRules;
 using YoutubeDotMp3.ViewModels.Base;
 using YoutubeDotMp3.ViewModels.Utils;
@@ -26,13 +25,15 @@ namespace YoutubeDotMp3.ViewModels
         
         private ConcurrentDictionary<Task, byte> Tasks { get; } = new ConcurrentDictionary<Task, byte>();
         private readonly SemaphoreSlimQueued _downloadSemaphore = new SemaphoreSlimQueued(10);
-        private CancellationTokenSource _cancellation;
-        private string _lastClipboardText;
 
         public ObservableCollection<OperationViewModel> Operations { get; } = new ObservableCollection<OperationViewModel>();
         public bool HasRunningOperations => Tasks.Count > 0;
+        
+        private readonly CancellationTokenSource _applicationCancellation = new CancellationTokenSource();
+        private CancellationTokenSource _operationCancellation = new CancellationTokenSource();
 
         static public readonly ValidationRule InputUrlValidationRule = new RegexValidationRule { Regex = YoutubeVideoAddressRegex, ErrorMessage = "Input must be a Youtube video URL" };
+        private string _lastClipboardText;
         
         private string _inputUrl = string.Empty;
         public string InputUrl
@@ -70,13 +71,11 @@ namespace YoutubeDotMp3.ViewModels
         public ISimpleCommand[] ContextualCommands { get; }
         public ISimpleCommand CancelAllCommand { get; }
 
-        private IDisposable _downloadSpeedRefresh;
-        private IDisposable _contextualCommandsRefresh;
+        private readonly IDisposable _downloadSpeedRefresh;
+        private readonly IDisposable _contextualCommandsRefresh;
 
         public MainViewModel()
         {
-            _cancellation = new CancellationTokenSource();
-
             AddOperationCommand = new SimpleCommand<bool>(AddOperation, CanAddOperation);
             ContextualCommands = new[]
             {
@@ -97,9 +96,19 @@ namespace YoutubeDotMp3.ViewModels
         }
 
         private bool CanAddOperation(bool hasError) => !hasError && !string.IsNullOrEmpty(InputUrl);
-        private void AddOperation()
+        private async void AddOperation()
         {
-            AddOperation(InputUrl, _cancellation.Token).ConfigureAwait(false);
+            await AddOperationAsync(InputUrl);
+        }
+        
+        private async Task AddOperationAsync(string youtubeVideoUrl)
+        {
+            var operation = new OperationViewModel(youtubeVideoUrl);
+            Operations.Insert(0, operation);
+
+            Task runTask = operation.RunAsync(_downloadSemaphore);
+            Tasks.GetOrAdd(runTask, default(byte));
+            await runTask.ContinueWith(t => Tasks.TryRemove(runTask, out _), CancellationToken.None);
         }
 
         private bool CanCancelAll() => Operations.Any(x => x.IsRunning);
@@ -113,8 +122,8 @@ namespace YoutubeDotMp3.ViewModels
             if (!IsClipboardWatcherEnabled)
                 return;
 
-            ClipboardWatchdog(TimeSpan.FromMilliseconds(500), _cancellation.Token)
-                .ContinueWith(t => RunClipboardWatcher(), _cancellation.Token, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.FromCurrentSynchronizationContext())
+            ClipboardWatchdog(TimeSpan.FromMilliseconds(500), _applicationCancellation.Token)
+                .ContinueWith(t => RunClipboardWatcher(), _applicationCancellation.Token, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.FromCurrentSynchronizationContext())
                 .ConfigureAwait(false);
         }
 
@@ -129,7 +138,7 @@ namespace YoutubeDotMp3.ViewModels
                     if (clipboardText != _lastClipboardText)
                     {
                         if (InputUrlValidationRule.Validate(clipboardText, CultureInfo.CurrentCulture).IsValid)
-                            await AddOperation(Clipboard.GetText(), cancellationToken);
+                            await AddOperationAsync(Clipboard.GetText());
                     }
 
                     _lastClipboardText = clipboardText;
@@ -138,55 +147,43 @@ namespace YoutubeDotMp3.ViewModels
                 await Task.Delay(refreshTime, cancellationToken);
             }
         }
-        
-        private async Task AddOperation(string youtubeVideoUrl, CancellationToken cancellationToken)
-        {
-            Task downloadSemaphoreWaitTask = _downloadSemaphore.WaitAsync(cancellationToken);
 
-            var operation = new OperationViewModel(youtubeVideoUrl);
-            Operations.Insert(0, operation);
-
-            if (!await operation.InitializeAsync(cancellationToken))
             {
-                await downloadSemaphoreWaitTask;
-                _downloadSemaphore.Release();
-                return;
-            }
 
-            Task runTask = operation.RunAsync(cancellationToken, _downloadSemaphore, downloadSemaphoreWaitTask);
-            Tasks.GetOrAdd(runTask, default(byte));
-
-            runTask.ContinueWith(t =>
             {
-                Tasks.TryRemove(t, out _);
-            }, CancellationToken.None).ConfigureAwait(false);
         }
 
-        private void CancelAllOperations()
+        public void CancelAllOperations()
         {
-            if (_cancellation != null)
+            if (_operationCancellation != null)
             {
-                _cancellation.Cancel();
-                _cancellation.Dispose();
-                _cancellation = new CancellationTokenSource();
+                _operationCancellation.Cancel();
+                _operationCancellation.Dispose();
+                _operationCancellation = new CancellationTokenSource();
             }
 
-            foreach (OperationViewModel operation in Operations)
+            foreach (OperationViewModel operation in Operations.Where(x => x.CanCancel()))
                 operation.Cancel();
         }
 
-        public async Task CancelAllBeforeQuit()
+        public async Task PreDisposeAsync()
         {
+            if (_applicationCancellation != null)
+            {
+                _applicationCancellation.Cancel();
+                _applicationCancellation.Dispose();
+            }
+
+            _downloadSpeedRefresh?.Dispose();
+            _contextualCommandsRefresh?.Dispose();
+
             CancelAllOperations();
+
             await Task.WhenAll(Tasks.Keys.ToArray());
         }
 
         public void Dispose()
         {
-            _downloadSpeedRefresh?.Dispose();
-            _contextualCommandsRefresh?.Dispose();
-
-            CancelAllBeforeQuit().Wait();
             _downloadSemaphore.Dispose();
         }
     }
