@@ -14,7 +14,7 @@ namespace YoutubeDotMp3.ViewModels.Base
 
         protected bool Set<T>(ref T backingField, T value, [CallerMemberName] string propertyName = null)
         {
-            if (value.Equals(backingField))
+            if (Equals(value, backingField))
                 return false;
 
             backingField = value;
