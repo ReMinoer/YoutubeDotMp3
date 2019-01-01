@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -79,6 +80,30 @@ namespace YoutubeDotMp3.ViewModels
                 }
             }
         }
+        
+        private OperationViewModel _selectedOperation;
+        public OperationViewModel SelectedOperation
+        {
+            get => _selectedOperation;
+            set
+            {
+                if (_selectedOperation != null)
+                    _selectedOperation.CurrentStateChanged -= SelectedOperationCurrentStateChanged;
+
+                if (Set(ref _selectedOperation, value))
+                    foreach (ISimpleCommand command in ContextualCommands)
+                        command.UpdateCanExecute();
+                
+                if (_selectedOperation != null)
+                    _selectedOperation.CurrentStateChanged += SelectedOperationCurrentStateChanged;
+            }
+        }
+
+        private void SelectedOperationCurrentStateChanged(object sender, OperationViewModel.State e)
+        {
+            foreach (ISimpleCommand command in ContextualCommands)
+                command.UpdateCanExecute();
+        }
 
         private long _downloadSpeed;
         public long DownloadSpeed
@@ -90,7 +115,12 @@ namespace YoutubeDotMp3.ViewModels
         public ISimpleCommand AddOperationCommand { get; }
 
         public ISimpleCommand[] ContextualCommands { get; }
+        public ISimpleCommand PlayCommand { get; }
+        public ISimpleCommand ShowInExplorerCommand { get; }
+        public ISimpleCommand ShowOnYoutubeCommand { get; }
+        public ISimpleCommand CancelCommand { get; }
         public ISimpleCommand CancelAllCommand { get; }
+        public ISimpleCommand ShowErrorMessageCommand { get; }
 
         private readonly IDisposable _downloadSpeedRefresh;
         private readonly IDisposable _contextualCommandsRefresh;
@@ -100,18 +130,19 @@ namespace YoutubeDotMp3.ViewModels
             AddOperationCommand = new SimpleCommand<bool>(AddOperation, CanAddOperation);
             ContextualCommands = new[]
             {
-                CancelAllCommand = new SimpleCommand(CancelAll, CanCancelAll)
+                PlayCommand = new SimpleCommand(Play, CanPlay),
+                ShowInExplorerCommand = new SimpleCommand(ShowInExplorer, CanShowInExplorer),
+                ShowOnYoutubeCommand = new SimpleCommand(ShowOnYoutube, CanShowOnYoutube),
+                CancelCommand = new SimpleCommand(Cancel, CanCancel),
+                CancelAllCommand = new SimpleCommand(CancelAll, CanCancelAll),
+                ShowErrorMessageCommand = new SimpleCommand(ShowErrorMessage, CanShowErrorMessage)
             };
 
             if (Clipboard.ContainsText())
                 _lastClipboardText = Clipboard.GetText();
 
             _downloadSpeedRefresh = Observable.Interval(TimeSpan.FromSeconds(1)).Subscribe(_ => DownloadSpeed = Operations.ToArray().Sum(x => x.RefreshDownloadSpeed()));
-            _contextualCommandsRefresh = Observable.Interval(TimeSpan.FromSeconds(0.5)).Subscribe(_ => Application.Current.Dispatcher.Invoke(() => 
-            {
-                foreach (ISimpleCommand command in ContextualCommands)
-                    command.UpdateCanExecute();
-            }));
+            _contextualCommandsRefresh = Observable.Interval(TimeSpan.FromSeconds(0.5)).Subscribe(_ => Application.Current.Dispatcher.Invoke(() => CancelAllCommand.UpdateCanExecute()));
 
             RunClipboardWatcher();
         }
@@ -137,12 +168,6 @@ namespace YoutubeDotMp3.ViewModels
             Task runTask = operation.RunAsync(_downloadSemaphore);
             Tasks.GetOrAdd(runTask, default(byte));
             await runTask.ContinueWith(t => Tasks.TryRemove(runTask, out _), CancellationToken.None);
-        }
-
-        private bool CanCancelAll() => Operations.Any(x => x.IsRunning);
-        private void CancelAll()
-        {
-            CancelAllOperations();
         }
 
         private void RunClipboardWatcher()
@@ -218,8 +243,34 @@ namespace YoutubeDotMp3.ViewModels
             {
             }
         }
+        
+        private bool CanPlay() => SelectedOperation != null && SelectedOperation.CurrentState == OperationViewModel.State.Completed && File.Exists(SelectedOperation.OutputFilePath);
+        private void Play()
+        {
+            Process.Start(SelectedOperation.OutputFilePath);
+        }
 
-        public void CancelAllOperations()
+        private bool CanShowInExplorer() => SelectedOperation != null && SelectedOperation.CurrentState == OperationViewModel.State.Completed && File.Exists(SelectedOperation.OutputFilePath);
+        private void ShowInExplorer()
+        {
+            Process.Start("explorer.exe", $"/select,\"{SelectedOperation.OutputFilePath}\"");
+        }
+        
+        private bool CanShowOnYoutube() => SelectedOperation != null;
+        private void ShowOnYoutube()
+        {
+            if (SelectedOperation != null)
+                Process.Start(SelectedOperation.YoutubeVideoUrl);
+        }
+        
+        private bool CanCancel() => SelectedOperation != null && SelectedOperation.IsRunning;
+        private void Cancel()
+        {
+            SelectedOperation.Cancel();
+        }
+
+        private bool CanCancelAll() => Operations.Any(x => x.IsRunning);
+        private void CancelAll()
         {
             if (_operationCancellation != null)
             {
@@ -228,8 +279,19 @@ namespace YoutubeDotMp3.ViewModels
                 _operationCancellation = new CancellationTokenSource();
             }
 
-            foreach (OperationViewModel operation in Operations.Where(x => x.CanCancel()))
+            foreach (OperationViewModel operation in Operations)
                 operation.Cancel();
+        }
+
+        private bool CanShowErrorMessage() => SelectedOperation != null && SelectedOperation.CurrentState == OperationViewModel.State.Failed;
+        private void ShowErrorMessage()
+        {
+            var exceptionMessageBuilder = new StringBuilder();
+            exceptionMessageBuilder.AppendLine(SelectedOperation.Exception.Message);
+            exceptionMessageBuilder.AppendLine();
+            exceptionMessageBuilder.AppendLine(SelectedOperation.Exception.StackTrace);
+
+            MessageBox.Show(exceptionMessageBuilder.ToString(), "Error Message", MessageBoxButton.OK, MessageBoxImage.Error);
         }
 
         public async Task PreDisposeAsync()
@@ -243,7 +305,7 @@ namespace YoutubeDotMp3.ViewModels
             _downloadSpeedRefresh?.Dispose();
             _contextualCommandsRefresh?.Dispose();
 
-            CancelAllOperations();
+            CancelAll();
 
             await Task.WhenAll(Tasks.Keys.ToArray());
         }

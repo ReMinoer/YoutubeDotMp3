@@ -1,7 +1,9 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using YoutubeDotMp3.ViewModels;
 
 namespace YoutubeDotMp3.Views
@@ -15,6 +17,13 @@ namespace YoutubeDotMp3.Views
             InitializeComponent();
 
             _viewModel = (MainViewModel)DataContext;
+        }
+
+        private void ListViewOnMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            HitTestResult r = VisualTreeHelper.HitTest(this, e.GetPosition(this));
+            if (r.VisualHit.GetType() != typeof(ListBoxItem))
+                ((ListView)sender).UnselectAll();
         }
 
         private void OnClosing(object sender, CancelEventArgs e)
@@ -50,16 +59,6 @@ namespace YoutubeDotMp3.Views
         private void OnClosed(object sender, EventArgs e)
         {
             _viewModel.Dispose();
-        }
-
-        private void OperationOnDoubleClick(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ClickCount >= 2)
-            {
-                var operation = (OperationViewModel)((FrameworkElement)sender).DataContext;
-                if (operation.CanPlay())
-                    operation.Play();
-            }
         }
     }
 }

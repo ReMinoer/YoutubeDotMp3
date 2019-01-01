@@ -1,13 +1,10 @@
 ﻿using System;
-using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
 using MediaToolkit.Model;
 using VideoLibrary;
 using YoutubeDotMp3.ViewModels.Base;
@@ -32,17 +29,9 @@ namespace YoutubeDotMp3.ViewModels
         public const string OutputDirectory = MainViewModel.FriendlyApplicationName;
         static public string OutputDirectoryPath { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), OutputDirectory);
         
-        private string _outputFilePath;
         private Subject<long> _downloadedBytesSubject;
-        private Exception _exception;
         private readonly CancellationTokenSource _cancellation = new CancellationTokenSource();
-
-        public SimpleCommand[] Commands { get; }
-        public SimpleCommand PlayCommand { get; }
-        public SimpleCommand ShowInExplorerCommand { get; }
-        public SimpleCommand ShowOnYoutubeCommand { get; }
-        public SimpleCommand CancelCommand { get; }
-        public SimpleCommand ShowErrorMessageCommand { get; }
+        private CancellationToken CancellationToken => _cancellation.Token;
         
         public string YoutubeVideoUrl { get; }
 
@@ -69,13 +58,20 @@ namespace YoutubeDotMp3.ViewModels
                 if (!Set(ref _currentState, value))
                     return;
                 
-                foreach (SimpleCommand command in Commands)
-                    command.UpdateCanExecute();
+                CurrentStateChanged?.Invoke(this, _currentState);
             }
         }
-        
+
+        public EventHandler<State> CurrentStateChanged;
         public bool IsRunning => CurrentState != State.Completed && CurrentState != State.Failed && CurrentState != State.Cancelling && CurrentState != State.Canceled;
         
+        private string _outputFilePath;
+        public string OutputFilePath
+        {
+            get => _outputFilePath;
+            private set => Set(ref _outputFilePath, value);
+        }
+
         private long _downloadedBytes;
         public long DownloadedBytes
         {
@@ -97,20 +93,16 @@ namespace YoutubeDotMp3.ViewModels
             private set => Set(ref _downloadSpeed, value);
         }
 
-        private CancellationToken CancellationToken => _cancellation.Token;
+        private Exception _exception;
+        public Exception Exception
+        {
+            get => _exception;
+            private set => Set(ref _exception, value);
+        }
 
         public OperationViewModel(string youtubeVideoUrl)
         {
             YoutubeVideoUrl = youtubeVideoUrl;
-
-            Commands = new []
-            {
-                PlayCommand = new SimpleCommand(Play, CanPlay),
-                ShowInExplorerCommand = new SimpleCommand(ShowInExplorer, CanShowInExplorer),
-                ShowOnYoutubeCommand = new SimpleCommand(ShowOnYoutube),
-                CancelCommand = new SimpleCommand(Cancel, CanCancel),
-                ShowErrorMessageCommand = new SimpleCommand(ShowErrorMessage, CanShowErrorMessage)
-            };
         }
 
         public async Task RunAsync(SemaphoreSlimQueued downloadSemaphore)
@@ -136,7 +128,7 @@ namespace YoutubeDotMp3.ViewModels
                 }
 
                 CurrentState = State.ConvertingToAudio;
-                await ConvertAsync(videoTempFilePath, _outputFilePath, CancellationToken);
+                await ConvertAsync(videoTempFilePath, OutputFilePath, CancellationToken);
 
                 CurrentState = State.Completed;
             }
@@ -147,7 +139,7 @@ namespace YoutubeDotMp3.ViewModels
             }
             catch (Exception ex)
             {
-                _exception = ex;
+                Exception = ex;
                 CurrentState = State.Failed;
             }
             finally
@@ -157,8 +149,8 @@ namespace YoutubeDotMp3.ViewModels
                 if (File.Exists(videoTempFilePath))
                     File.Delete(videoTempFilePath);
 
-                if (CurrentState != State.Completed && File.Exists(_outputFilePath))
-                    File.Delete(_outputFilePath);
+                if (CurrentState != State.Completed && File.Exists(OutputFilePath))
+                    File.Delete(OutputFilePath);
             }
         }
 
@@ -183,8 +175,8 @@ namespace YoutubeDotMp3.ViewModels
             if (!Directory.Exists(OutputDirectoryPath))
                 Directory.CreateDirectory(OutputDirectoryPath);
 
-            _outputFilePath = GetValidFileName(OutputDirectoryPath, Title, ".mp3");
-            File.Create(_outputFilePath);
+            OutputFilePath = GetValidFileName(OutputDirectoryPath, Title, ".mp3");
+            File.Create(OutputFilePath);
         }
 
         private async Task DownloadAsync(YouTubeVideo youtubeVideo, string videoOutputFilePath, CancellationToken cancellationToken)
@@ -272,42 +264,14 @@ namespace YoutubeDotMp3.ViewModels
                 _downloadedBytesSubject.OnNext(DownloadedBytes);
             return DownloadSpeed;
         }
-        
-        public bool CanCancel() => IsRunning;
+
         public void Cancel()
         {
+            if (!IsRunning)
+                return;
+
             _cancellation.Cancel();
-
-            if (IsRunning)
-                CurrentState = State.Cancelling;
-        }
-        
-        public bool CanPlay() => CurrentState == State.Completed && File.Exists(_outputFilePath);
-        public void Play()
-        {
-            Process.Start(_outputFilePath);
-        }
-
-        private bool CanShowInExplorer() => CurrentState == State.Completed && File.Exists(_outputFilePath);
-        private void ShowInExplorer()
-        {
-            Process.Start("explorer.exe", $"/select,\"{_outputFilePath}\"");
-        }
-        
-        private void ShowOnYoutube()
-        {
-            Process.Start(YoutubeVideoUrl);
-        }
-
-        private bool CanShowErrorMessage() => CurrentState == State.Failed;
-        private void ShowErrorMessage()
-        {
-            var exceptionMessageBuilder = new StringBuilder();
-            exceptionMessageBuilder.AppendLine(_exception.Message);
-            exceptionMessageBuilder.AppendLine();
-            exceptionMessageBuilder.AppendLine(_exception.StackTrace);
-
-            MessageBox.Show(exceptionMessageBuilder.ToString(), "Error Message", MessageBoxButton.OK, MessageBoxImage.Error);
+            CurrentState = State.Cancelling;
         }
 
         static private string GetValidFileName(string directory, string title, string extension)
