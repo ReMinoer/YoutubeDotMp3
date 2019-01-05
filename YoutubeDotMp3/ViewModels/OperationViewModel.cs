@@ -31,7 +31,6 @@ namespace YoutubeDotMp3.ViewModels
         
         private Subject<long> _downloadedBytesSubject;
         private CancellationTokenSource _cancellation = new CancellationTokenSource();
-        private CancellationToken CancellationToken => _cancellation.Token;
         
         public string YoutubeVideoUrl { get; }
 
@@ -119,8 +118,9 @@ namespace YoutubeDotMp3.ViewModels
             string videoTempFilePath = Path.GetTempFileName();
             try
             {
-                Task downloadSemaphoreWaitTask = downloadSemaphore.WaitAsync(CancellationToken);
-                await InitializeAsync(CancellationToken);
+                CancellationToken cancellationToken = _cancellation.Token;
+                Task downloadSemaphoreWaitTask = downloadSemaphore.WaitAsync(cancellationToken);
+                await InitializeAsync(cancellationToken);
 
                 CurrentState = State.InQueue;
                 await downloadSemaphoreWaitTask;
@@ -128,7 +128,7 @@ namespace YoutubeDotMp3.ViewModels
                 try
                 {
                     CurrentState = State.DownloadingVideo;
-                    await DownloadAsync(YoutubeVideo, videoTempFilePath, CancellationToken);
+                    await DownloadAsync(YoutubeVideo, videoTempFilePath, cancellationToken);
                 }
                 finally
                 {
@@ -137,7 +137,7 @@ namespace YoutubeDotMp3.ViewModels
                 }
 
                 CurrentState = State.ConvertingToAudio;
-                await ConvertAsync(videoTempFilePath, OutputFilePath, CancellationToken);
+                await ConvertAsync(videoTempFilePath, OutputFilePath, cancellationToken);
 
                 CurrentState = State.Completed;
             }
