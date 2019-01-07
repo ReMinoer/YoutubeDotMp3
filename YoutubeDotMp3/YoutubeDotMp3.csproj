@@ -65,9 +65,9 @@
     <Compile Include="ValidationRules\OrValidationRule.cs" />
     <Compile Include="ValidationRules\RegexValidationRule.cs" />
     <Compile Include="ValidationRules\Base\SimpleValidationRuleBase.cs" />
-    <Compile Include="ViewModels\Utils\ISimpleCommand.cs" />
-    <Compile Include="ViewModels\Utils\SemaphoreSlimQueued.cs" />
-    <Compile Include="ViewModels\Utils\SimpleCommand.cs" />
+    <Compile Include="Utils\ISimpleCommand.cs" />
+    <Compile Include="Utils\SemaphoreSlimQueued.cs" />
+    <Compile Include="Utils\SimpleCommand.cs" />
     <Compile Include="Views\MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -75,7 +75,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ViewModels\MainViewModel.cs" />
-    <Compile Include="ViewModels\Base\NotifyPropertyChangedBase.cs" />
+    <Compile Include="Utils\NotifyPropertyChangedBase.cs" />
     <Compile Include="ViewModels\OperationViewModel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>

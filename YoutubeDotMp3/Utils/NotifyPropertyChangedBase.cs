@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace YoutubeDotMp3.ViewModels.Base
+namespace YoutubeDotMp3.Utils
 {
     public abstract class NotifyPropertyChangedBase : INotifyPropertyChanged
     {

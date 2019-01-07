@@ -17,9 +17,8 @@ using Google.Apis.Services;
 using Google.Apis.Util.Store;
 using Google.Apis.YouTube.v3;
 using Google.Apis.YouTube.v3.Data;
+using YoutubeDotMp3.Utils;
 using YoutubeDotMp3.ValidationRules;
-using YoutubeDotMp3.ViewModels.Base;
-using YoutubeDotMp3.ViewModels.Utils;
 
 namespace YoutubeDotMp3.ViewModels
 {

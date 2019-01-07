@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Windows.Input;
 
-namespace YoutubeDotMp3.ViewModels.Utils
+namespace YoutubeDotMp3.Utils
 {
     public class SimpleCommand : ISimpleCommand
     {

@@ -7,8 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediaToolkit.Model;
 using VideoLibrary;
-using YoutubeDotMp3.ViewModels.Base;
-using YoutubeDotMp3.ViewModels.Utils;
+using YoutubeDotMp3.Utils;
 
 namespace YoutubeDotMp3.ViewModels
 {
