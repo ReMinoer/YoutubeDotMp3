@@ -114,15 +114,18 @@ namespace YoutubeDotMp3.ViewModels
             DownloadSpeed = 0;
             Exception = null;
 
+            Task downloadSemaphoreWaitTask = null;
             string videoTempFilePath = Path.GetTempFileName();
             try
             {
                 CancellationToken cancellationToken = _cancellation.Token;
-                Task downloadSemaphoreWaitTask = downloadSemaphore.WaitAsync(cancellationToken);
+                downloadSemaphoreWaitTask = downloadSemaphore.WaitAsync(cancellationToken);
+
                 await InitializeAsync(cancellationToken).ConfigureAwait(false);
 
                 CurrentState = State.InQueue;
                 await downloadSemaphoreWaitTask.ConfigureAwait(false);
+                downloadSemaphoreWaitTask = null;
 
                 try
                 {
@@ -151,6 +154,10 @@ namespace YoutubeDotMp3.ViewModels
             }
             catch (OperationCanceledException)
             {
+                // Handle delayed semaphore await and initialization cancellation
+                if (downloadSemaphoreWaitTask != null && downloadSemaphoreWaitTask.IsCompleted && !downloadSemaphoreWaitTask.IsCanceled)
+                    downloadSemaphore.Release();
+
                 CurrentState = State.Canceled;
             }
             catch (Exception ex)

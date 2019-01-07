@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -38,16 +39,19 @@ namespace YoutubeDotMp3.Views
             e.Cancel = true;
             if (!IsEnabled)
                 return;
-            
-            MessageBoxResult messageBoxResult = MessageBox.Show(
-                $"Are you sure you want to close {MainViewModel.ApplicationName}? Currently running operations will be aborted.",
-                $"Closing {MainViewModel.ApplicationName}",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question,
-                MessageBoxResult.No);
 
-            if (messageBoxResult != MessageBoxResult.Yes)
-                return;
+            if (_viewModel.Operations.Any(x => x.IsRunning))
+            {
+                MessageBoxResult messageBoxResult = MessageBox.Show(
+                    $"Are you sure you want to close {MainViewModel.ApplicationName}? Currently running operations will be aborted.",
+                    $"Closing {MainViewModel.ApplicationName}",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question,
+                    MessageBoxResult.No);
+
+                if (messageBoxResult != MessageBoxResult.Yes)
+                    return;
+            }
 
             IsEnabled = false;
             await _viewModel.PreDisposeAsync();
