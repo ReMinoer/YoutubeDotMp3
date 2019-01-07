@@ -47,7 +47,8 @@ namespace YoutubeDotMp3.ViewModels
         };
         
         private ConcurrentDictionary<Task, byte> Tasks { get; } = new ConcurrentDictionary<Task, byte>();
-        private readonly SemaphoreSlimQueued _downloadSemaphore = new SemaphoreSlimQueued(10);
+        private readonly SemaphoreSlimQueued _downloadSemaphore = new SemaphoreSlimQueued(1);
+        private readonly SemaphoreSlimQueued _conversionSemaphore = new SemaphoreSlimQueued(Math.Max(1, Environment.ProcessorCount / 2));
 
         public ObservableCollection<OperationViewModel> Operations { get; } = new ObservableCollection<OperationViewModel>();
         public bool HasRunningOperations => Tasks.Count > 0;
@@ -75,7 +76,7 @@ namespace YoutubeDotMp3.ViewModels
                     if (_isClipboardWatcherEnabled)
                     {
                         _lastClipboardText = Clipboard.GetText();
-                        RunClipboardWatcher();
+                        RunClipboardWatcherAsync();
                     }
                 }
             }
@@ -101,8 +102,11 @@ namespace YoutubeDotMp3.ViewModels
 
         private void SelectedOperationCurrentStateChanged(object sender, OperationViewModel.State e)
         {
-            foreach (ISimpleCommand command in ContextualCommands)
-                command.UpdateCanExecute();
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                foreach (ISimpleCommand command in ContextualCommands)
+                    command.UpdateCanExecute();
+            });
         }
 
         private long _downloadSpeed;
@@ -144,9 +148,7 @@ namespace YoutubeDotMp3.ViewModels
                 _lastClipboardText = Clipboard.GetText();
 
             _downloadSpeedRefresh = Observable.Interval(TimeSpan.FromSeconds(1)).Subscribe(_ => DownloadSpeed = Operations.ToArray().Sum(x => x.RefreshDownloadSpeed()));
-            _contextualCommandsRefresh = Observable.Interval(TimeSpan.FromSeconds(0.5)).Subscribe(_ => Application.Current.Dispatcher.Invoke(() => CancelAllCommand.UpdateCanExecute()));
-
-            RunClipboardWatcher();
+            _contextualCommandsRefresh = Observable.Interval(TimeSpan.FromSeconds(0.5)).ObserveOn(SynchronizationContext.Current).Subscribe(_ => CancelAllCommand.UpdateCanExecute());
         }
 
         private bool CanAddOperation(bool hasError) => !hasError && !string.IsNullOrEmpty(InputUrl);
@@ -155,36 +157,52 @@ namespace YoutubeDotMp3.ViewModels
             Match playlistRegexMatch = YoutubePlaylistAddressRegex.Match(InputUrl);
             if (playlistRegexMatch.Success)
             {
-                await AddOperationsFromPlaylist(playlistRegexMatch.Groups[1].Value, _operationCancellation.Token);
+                await AddOperationsFromPlaylist(playlistRegexMatch.Groups[1].Value, _operationCancellation.Token).ConfigureAwait(false);
                 return;
             }
 
-            await AddOperationAsync(InputUrl);
+            await AddOperationAsync(InputUrl).ConfigureAwait(false);
         }
         
         private async Task AddOperationAsync(string youtubeVideoUrl)
         {
             var operation = new OperationViewModel(youtubeVideoUrl);
             Operations.Insert(0, operation);
-
-            await RunOperationAsync(operation);
+            
+            await RunOperationAsync(operation).ConfigureAwait(false);
         }
 
-        private async Task RunOperationAsync(OperationViewModel operation)
+        private Task RunOperationAsync(OperationViewModel operation)
         {
-            Task runTask = operation.RunAsync(_downloadSemaphore);
-            Tasks.GetOrAdd(runTask, default(byte));
-            await runTask.ContinueWith(t => Tasks.TryRemove(runTask, out _), CancellationToken.None);
+            return Task.Run(async () =>
+            {
+                Task runTask = operation.RunAsync(_downloadSemaphore, _conversionSemaphore);
+                Tasks.GetOrAdd(runTask, default(byte));
+
+                await runTask.ConfigureAwait(false);
+                Tasks.TryRemove(runTask, out _);
+            });
         }
 
-        private void RunClipboardWatcher()
+        private void RunClipboardWatcherAsync()
         {
-            if (!IsClipboardWatcherEnabled)
-                return;
+            Task.Run(async () =>
+            {
+                while (true)
+                {
+                    if (!IsClipboardWatcherEnabled)
+                        return;
 
-            ClipboardWatchdog(TimeSpan.FromMilliseconds(500), _applicationCancellation.Token)
-                .ContinueWith(t => RunClipboardWatcher(), _applicationCancellation.Token, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.FromCurrentSynchronizationContext())
-                .ConfigureAwait(false);
+                    try
+                    {
+                        await ClipboardWatchdog(TimeSpan.FromMilliseconds(500), _applicationCancellation.Token).ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        // ignored
+                    }
+                }
+            });
         }
 
         private async Task ClipboardWatchdog(TimeSpan refreshTime, CancellationToken cancellationToken)
@@ -198,13 +216,13 @@ namespace YoutubeDotMp3.ViewModels
                     if (clipboardText != _lastClipboardText)
                     {
                         if (InputUrlValidationRule.Validate(clipboardText, CultureInfo.CurrentCulture).IsValid)
-                            await AddOperationAsync(Clipboard.GetText());
+                            await AddOperationAsync(Clipboard.GetText()).ConfigureAwait(false);
                     }
 
                     _lastClipboardText = clipboardText;
                 }
 
-                await Task.Delay(refreshTime, cancellationToken);
+                await Task.Delay(refreshTime, cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -221,7 +239,7 @@ namespace YoutubeDotMp3.ViewModels
                         "user",
                         cancellationToken,
                         new FileDataStore(FriendlyApplicationName)
-                    );
+                    ).ConfigureAwait(false);
                 }
 
                 using (var youTubeService = new YouTubeService(new BaseClientService.Initializer { HttpClientInitializer = credential }))
@@ -234,11 +252,11 @@ namespace YoutubeDotMp3.ViewModels
                         listRequest.MaxResults = 50;
                         listRequest.PageToken = pageToken;
 
-                        PlaylistItemListResponse listResponse = await listRequest.ExecuteAsync(cancellationToken);
+                        PlaylistItemListResponse listResponse = await listRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
                         foreach (PlaylistItem playlistItem in listResponse.Items)
                         {
                             cancellationToken.ThrowIfCancellationRequested();
-                            AddOperationAsync($"https://www.youtube.com/watch?v={playlistItem.ContentDetails.VideoId}").ConfigureAwait(false);
+                            await AddOperationAsync($"https://www.youtube.com/watch?v={playlistItem.ContentDetails.VideoId}").ConfigureAwait(false);
                         }
 
                         pageToken = listResponse.NextPageToken;
@@ -306,7 +324,7 @@ namespace YoutubeDotMp3.ViewModels
                                        || SelectedOperation.CurrentState == OperationViewModel.State.Canceled);
         private async void Retry()
         {
-            await RunOperationAsync(SelectedOperation);
+            await RunOperationAsync(SelectedOperation).ConfigureAwait(false);
         }
 
         public async Task PreDisposeAsync()
@@ -322,7 +340,7 @@ namespace YoutubeDotMp3.ViewModels
 
             CancelAll();
 
-            await Task.WhenAll(Tasks.Keys.ToArray());
+            await Task.WhenAll(Tasks.Keys.ToArray()).ConfigureAwait(false);
         }
 
         public void Dispose()

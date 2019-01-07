@@ -34,23 +34,28 @@ namespace YoutubeDotMp3.ViewModels.Utils
         {
             return EnqueueAsync(async x =>
             {
-                await semaphoreTaskFunc(x);
+                await semaphoreTaskFunc(x).ConfigureAwait(false);
                 return true;
             });
         }
 
-        private Task<bool> EnqueueAsync(Func<SemaphoreSlim, Task<bool>> semaphoreTaskFunc)
+        private async Task<bool> EnqueueAsync(Func<SemaphoreSlim, Task<bool>> semaphoreTaskFunc)
         {
             var queuedTcs = new TaskCompletionSource<bool>();
             _queue.Enqueue(queuedTcs);
 
-            semaphoreTaskFunc(_semaphoreSlim).ContinueWith(t =>
+            bool result = false;
+            try
             {
-                if (_queue.TryDequeue(out TaskCompletionSource<bool> dequeuedTcs))
-                    dequeuedTcs.SetResult(!t.IsFaulted && !t.IsCanceled && t.Result);
-            });
-
-            return queuedTcs.Task;
+                result = await semaphoreTaskFunc(_semaphoreSlim).ConfigureAwait(false);
+            }
+            finally
+            {
+                _queue.TryDequeue(out TaskCompletionSource<bool> dequeuedTcs);
+                dequeuedTcs.SetResult(result);
+            }
+            
+            return await queuedTcs.Task.ConfigureAwait(false);
         }
 
         public int Release() => _semaphoreSlim.Release();

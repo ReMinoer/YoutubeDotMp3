@@ -50,7 +50,8 @@ namespace YoutubeDotMp3.Views
                 return;
 
             IsEnabled = false;
-            _viewModel.PreDisposeAsync().ContinueWith(_ => Application.Current.Dispatcher.Invoke(Close)).ConfigureAwait(false);
+            await _viewModel.PreDisposeAsync();
+            Close();
         }
 
         private void OnClosed(object sender, EventArgs e)

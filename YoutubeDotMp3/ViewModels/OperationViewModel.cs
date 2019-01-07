@@ -107,7 +107,7 @@ namespace YoutubeDotMp3.ViewModels
             YoutubeVideoUrl = youtubeVideoUrl;
         }
 
-        public async Task RunAsync(SemaphoreSlimQueued downloadSemaphore)
+        public async Task RunAsync(SemaphoreSlimQueued downloadSemaphore, SemaphoreSlimQueued conversionSemaphore)
         {
             CurrentState = State.Initializing;
             DownloadedBytes = 0;
@@ -120,30 +120,38 @@ namespace YoutubeDotMp3.ViewModels
             {
                 CancellationToken cancellationToken = _cancellation.Token;
                 Task downloadSemaphoreWaitTask = downloadSemaphore.WaitAsync(cancellationToken);
-                await InitializeAsync(cancellationToken);
+                await InitializeAsync(cancellationToken).ConfigureAwait(false);
 
                 CurrentState = State.InQueue;
-                await downloadSemaphoreWaitTask;
+                await downloadSemaphoreWaitTask.ConfigureAwait(false);
 
                 try
                 {
                     CurrentState = State.DownloadingVideo;
-                    await DownloadAsync(YoutubeVideo, videoTempFilePath, cancellationToken);
+                    await CreateValidFileAsync(cancellationToken).ConfigureAwait(false);
+                    await DownloadAsync(YoutubeVideo, videoTempFilePath, cancellationToken).ConfigureAwait(false);
                 }
                 finally
                 {
                     downloadSemaphore.Release();
-                    downloadSemaphore = null;
                 }
 
                 CurrentState = State.ConvertingToAudio;
-                await ConvertAsync(videoTempFilePath, OutputFilePath, cancellationToken);
+                await conversionSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+                try
+                {
+                    await ConvertAsync(videoTempFilePath, OutputFilePath, cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    conversionSemaphore.Release();
+                }
 
                 CurrentState = State.Completed;
             }
             catch (OperationCanceledException)
             {
-                downloadSemaphore?.Release();
                 CurrentState = State.Canceled;
             }
             catch (Exception ex)
@@ -174,7 +182,7 @@ namespace YoutubeDotMp3.ViewModels
             {
                 try
                 {
-                    YoutubeVideo = await YouTube.Default.GetVideoAsync(YoutubeVideoUrl);
+                    YoutubeVideo = await YouTube.Default.GetVideoAsync(YoutubeVideoUrl).ConfigureAwait(false);
                 }
                 catch (InvalidOperationException)
                 {
@@ -185,16 +193,43 @@ namespace YoutubeDotMp3.ViewModels
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (Title == null || OutputFilePath == null)
-            {
+            if (_title == null)
                 Title = YoutubeVideo.Title.Substring(0, YoutubeVideo.Title.Length - " - Youtube".Length);
-                OutputFilePath = GetValidFileName(OutputDirectoryPath, Title, ".mp3");
+        }
+
+        static private readonly SemaphoreSlimQueued ValidNameSemaphore = new SemaphoreSlimQueued(1);
+        private async Task CreateValidFileAsync(CancellationToken cancellationToken)
+        {
+            string fileNameBase = Title;
+
+            foreach (char invalidFileNameChar in Path.GetInvalidFileNameChars())
+                fileNameBase = fileNameBase.Replace(invalidFileNameChar, '_');
+            fileNameBase = fileNameBase.Replace('.', '_');
+
+            const string fileExtension = ".mp3";
+            string filePath = Path.Combine(OutputDirectoryPath, fileNameBase + fileExtension);
+
+            await ValidNameSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                int i = 1;
+                while (File.Exists(filePath))
+                {
+                    i++;
+                    filePath = Path.Combine(OutputDirectoryPath, $"{fileNameBase} ({i})" + fileExtension);
+                }
+
+                if (!Directory.Exists(OutputDirectoryPath))
+                    Directory.CreateDirectory(OutputDirectoryPath);
+
+                File.Create(filePath);
+            }
+            finally
+            {
+                ValidNameSemaphore.Release();
             }
 
-            if (!Directory.Exists(OutputDirectoryPath))
-                Directory.CreateDirectory(OutputDirectoryPath);
-
-            File.Create(OutputFilePath);
+            OutputFilePath = filePath;
         }
 
         private async Task DownloadAsync(YouTubeVideo youtubeVideo, string videoOutputFilePath, CancellationToken cancellationToken)
@@ -207,15 +242,15 @@ namespace YoutubeDotMp3.ViewModels
             {
                 using (var httpClient = new HttpClient())
                 {
-                    string requestUri = await youtubeVideo.GetUriAsync();
-                    using (HttpResponseMessage response = await httpClient.GetAsync(requestUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
+                    string requestUri = await youtubeVideo.GetUriAsync().ConfigureAwait(false);
+                    using (HttpResponseMessage response = await httpClient.GetAsync(requestUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))
                     {
                         response.EnsureSuccessStatusCode();
 
                         VideoSize = response.Content.Headers.ContentLength ?? throw new EndOfStreamException();
 
                         cancellationToken.ThrowIfCancellationRequested();
-                        using (Stream videoInputStream = await response.Content.ReadAsStreamAsync())
+                        using (Stream videoInputStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
                         {
                             cancellationToken.ThrowIfCancellationRequested();
                             using (FileStream videoOutputFileStream = File.OpenWrite(videoOutputFilePath))
@@ -224,8 +259,8 @@ namespace YoutubeDotMp3.ViewModels
                                 var buffer = new byte[4096];
                                 do
                                 {
-                                    readBytes = await videoInputStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
-                                    await videoOutputFileStream.WriteAsync(buffer, 0, readBytes, cancellationToken);
+                                    readBytes = await videoInputStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false);
+                                    await videoOutputFileStream.WriteAsync(buffer, 0, readBytes, cancellationToken).ConfigureAwait(false);
 
                                     DownloadedBytes += readBytes;
                                 }
@@ -291,29 +326,6 @@ namespace YoutubeDotMp3.ViewModels
             _cancellation = new CancellationTokenSource();
 
             CurrentState = State.Cancelling;
-        }
-
-        static private string GetValidFileName(string directory, string title, string extension)
-        {
-            foreach (char invalidFileNameChar in Path.GetInvalidFileNameChars())
-                title = title.Replace(invalidFileNameChar, '_');
-
-            string validFileName = title;
-            string result = Path.Combine(directory, title + extension);
-
-            if (!File.Exists(result))
-                return result;
-
-            int i = 1;
-            do
-            {
-                i++;
-                title = $"{validFileName} ({i})";
-                result = Path.Combine(directory, title + extension);
-            }
-            while (File.Exists(result));
-
-            return result;
         }
     }
 }
