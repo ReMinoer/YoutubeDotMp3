@@ -74,7 +74,8 @@
             </StatusBarItem>
         </StatusBar>
         <Grid>
-            <ListView ItemsSource="{Binding Operations}"
+            <ListView x:Name="ListView"
+                      ItemsSource="{Binding Operations}"
                       SelectedItem="{Binding SelectedOperation, Mode=OneWayToSource}"
                       MouseDown="ListViewOnMouseDown"
                       >
@@ -91,15 +92,15 @@
                         <MenuItem Header="Show Error Message..." Command="{Binding ShowErrorMessageCommand}" />
                     </ContextMenu>
                 </ListView.ContextMenu>
-                <ListView.InputBindings>
-                    <MouseBinding Gesture="LeftDoubleClick" Command="{Binding PlayCommand}" />
-                </ListView.InputBindings>
                 <ListView.ItemTemplate>
                     <DataTemplate DataType="{x:Type viewModels:OperationViewModel}">
                         <StackPanel Margin="5"
                                     Orientation="Vertical"
                                     ToolTip="{Binding CurrentState, Converter={StaticResource OperationStateToMessage}}"
                                     >
+                            <StackPanel.InputBindings>
+                                <MouseBinding Gesture="LeftDoubleClick" Command="{Binding DataContext.PlayCommand, ElementName=ListView}" />
+                            </StackPanel.InputBindings>
                             <DockPanel>
                                 <DockPanel DockPanel.Dock="Right">
                                     <TextBlock DockPanel.Dock="Right"
