@@ -166,7 +166,7 @@ namespace YoutubeDotMp3.ViewModels
         private async Task AddOperationAsync(string youtubeVideoUrl)
         {
             var operation = new OperationViewModel(youtubeVideoUrl);
-            Operations.Insert(0, operation);
+            Application.Current.Dispatcher.Invoke(() => Operations.Insert(0, operation));
             
             await RunOperationAsync(operation).ConfigureAwait(false);
         }
@@ -255,7 +255,7 @@ namespace YoutubeDotMp3.ViewModels
                         foreach (PlaylistItem playlistItem in listResponse.Items)
                         {
                             cancellationToken.ThrowIfCancellationRequested();
-                            await AddOperationAsync($"https://www.youtube.com/watch?v={playlistItem.ContentDetails.VideoId}").ConfigureAwait(false);
+                            AddOperationAsync($"https://www.youtube.com/watch?v={playlistItem.ContentDetails.VideoId}");
                         }
 
                         pageToken = listResponse.NextPageToken;
