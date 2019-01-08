@@ -11,6 +11,7 @@
         Width="800"
         Title="{x:Static viewModels:MainViewModel.ApplicationName}"
         Icon="../Resources/icon.ico"
+        Loaded="OnLoaded"
         Closing="OnClosing"
         Closed="OnClosed">
     <Window.DataContext>
@@ -18,6 +19,7 @@
     </Window.DataContext>
     <Window.Resources>
         <ResourceDictionary>
+            <converters:NullToVisibility x:Key="NullToVisibility" />
             <converters:OperationStateToDisplayText x:Key="OperationStateToDisplayText" />
             <converters:OperationStateToMessage x:Key="OperationStateToMessage" />
             <converters:OperationStateToBrush x:Key="OperationStateToBrush" />
@@ -128,8 +130,8 @@
                                     </ResourceDictionary>
                                 </DockPanel.Resources>
                                 <ProgressBar DockPanel.Dock="Right"
-                                             Value="{Binding DownloadedBytes, Mode=OneWay}"
-                                             Maximum="{Binding VideoSize}"
+                                             Value="{Binding Progress, Mode=OneWay}"
+                                             Maximum="{Binding ProgressMax}"
                                              Width="100"
                                              Height="5"
                                              Visibility="{Binding CurrentState, Converter={StaticResource OperationStateToProgressVisibility}}"
@@ -145,6 +147,11 @@
                     </Style>
                 </ListView.ItemContainerStyle>
             </ListView>
+            <Label Content="{Binding ImportantMessage}"
+                   Visibility="{Binding ImportantMessage, Converter={StaticResource NullToVisibility}}"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+            />
         </Grid>
     </DockPanel>
 </Window>

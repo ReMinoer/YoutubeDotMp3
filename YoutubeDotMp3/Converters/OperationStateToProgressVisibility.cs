@@ -8,7 +8,9 @@ namespace YoutubeDotMp3.Converters
     {
         protected override Visibility Convert(OperationViewModel.State value)
         {
-            return value == OperationViewModel.State.DownloadingVideo ? Visibility.Visible : Visibility.Hidden;
+            return value == OperationViewModel.State.DownloadingVideo || value == OperationViewModel.State.ConvertingToAudio
+                ? Visibility.Visible
+                : Visibility.Hidden;
         }
     }
 }

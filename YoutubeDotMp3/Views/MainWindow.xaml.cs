@@ -20,6 +20,11 @@ namespace YoutubeDotMp3.Views
             _viewModel = (MainViewModel)DataContext;
         }
 
+        private void OnLoaded(object sender, RoutedEventArgs e)
+        {
+            _viewModel.OnLoaded();
+        }
+
         private void ListViewOnMouseDown(object sender, MouseButtonEventArgs e)
         {
             HitTestResult r = VisualTreeHelper.HitTest(this, e.GetPosition(this));

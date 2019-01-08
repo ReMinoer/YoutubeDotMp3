@@ -6,6 +6,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -17,6 +18,7 @@ using Google.Apis.Services;
 using Google.Apis.Util.Store;
 using Google.Apis.YouTube.v3;
 using Google.Apis.YouTube.v3.Data;
+using Xabe.FFmpeg;
 using YoutubeDotMp3.Utils;
 using YoutubeDotMp3.ValidationRules;
 
@@ -99,6 +101,13 @@ namespace YoutubeDotMp3.ViewModels
             }
         }
 
+        private string _importantMessage;
+        public string ImportantMessage
+        {
+            get => _importantMessage;
+            set => Set(ref _importantMessage, value);
+        }
+
         private void SelectedOperationCurrentStateChanged(object sender, OperationViewModel.State e)
         {
             Application.Current.Dispatcher.Invoke(() =>
@@ -148,6 +157,53 @@ namespace YoutubeDotMp3.ViewModels
 
             _downloadSpeedRefresh = Observable.Interval(TimeSpan.FromSeconds(1)).Subscribe(_ => DownloadSpeed = Operations.ToArray().Sum(x => x.RefreshDownloadSpeed()));
             _contextualCommandsRefresh = Observable.Interval(TimeSpan.FromSeconds(0.5)).ObserveOn(SynchronizationContext.Current).Subscribe(_ => CancelAllCommand.UpdateCanExecute());
+        }
+
+        public async void OnLoaded()
+        {
+            Application.Current.MainWindow.IsEnabled = false;
+            await GetFFmpeg();
+            Application.Current.MainWindow.IsEnabled = true;
+        }
+
+        private async Task GetFFmpeg()
+        {
+            string ffmpegDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
+                                     ?? throw new InvalidOperationException();
+
+            FFmpeg.ExecutablesPath = ffmpegDirectory;
+
+            string ffmpegExecutable = Path.Combine(ffmpegDirectory, "ffmpeg.exe");
+            string ffprobeExecutable = Path.Combine(ffmpegDirectory, "ffprobe.exe");
+            string versionJson = Path.Combine(ffmpegDirectory, "version.json");
+
+            if (!File.Exists(ffmpegExecutable) || !File.Exists(ffprobeExecutable) || !File.Exists(versionJson))
+            {
+                if (File.Exists(ffmpegExecutable))
+                    File.Delete(ffmpegExecutable);
+                if (File.Exists(ffprobeExecutable))
+                    File.Delete(ffprobeExecutable);
+                if (File.Exists(versionJson))
+                    File.Delete(versionJson);
+            }
+
+            Task downloadTask = Task.Run(FFmpeg.GetLatestVersion, CancellationToken.None);
+            
+            var messageCancellation = new CancellationTokenSource();
+            downloadTask.ContinueWith(t => messageCancellation.Cancel());
+
+            try
+            {
+                await Task.Delay(1000, messageCancellation.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            ImportantMessage = "Downloading FFmpeg... It can take a few minutes...";
+            await downloadTask;
+            ImportantMessage = null;
         }
 
         private bool CanAddOperation(bool hasError) => !hasError && !string.IsNullOrEmpty(InputUrl);

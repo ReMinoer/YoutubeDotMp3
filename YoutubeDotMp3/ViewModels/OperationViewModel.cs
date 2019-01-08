@@ -5,8 +5,8 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaToolkit.Model;
 using VideoLibrary;
+using Xabe.FFmpeg;
 using YoutubeDotMp3.Utils;
 
 namespace YoutubeDotMp3.ViewModels
@@ -73,18 +73,18 @@ namespace YoutubeDotMp3.ViewModels
             private set => Set(ref _outputFilePath, value);
         }
 
-        private long _downloadedBytes;
-        public long DownloadedBytes
+        private long _progress;
+        public long Progress
         {
-            get => _downloadedBytes;
-            private set => Set(ref _downloadedBytes, value);
+            get => _progress;
+            private set => Set(ref _progress, value);
         }
 
-        private long _videoSize;
-        public long VideoSize
+        private long _progressMax;
+        public long ProgressMax
         {
-            get => _videoSize;
-            private set => Set(ref _videoSize, value);
+            get => _progressMax;
+            private set => Set(ref _progressMax, value);
         }
 
         private long _downloadSpeed;
@@ -109,8 +109,8 @@ namespace YoutubeDotMp3.ViewModels
         public async Task RunAsync(SemaphoreSlimQueued downloadSemaphore, SemaphoreSlimQueued conversionSemaphore)
         {
             CurrentState = State.Initializing;
-            DownloadedBytes = 0;
-            VideoSize = long.MaxValue;
+            Progress = 0;
+            ProgressMax = long.MaxValue;
             DownloadSpeed = 0;
             Exception = null;
 
@@ -132,6 +132,9 @@ namespace YoutubeDotMp3.ViewModels
                     CurrentState = State.DownloadingVideo;
                     await CreateValidFileAsync(cancellationToken).ConfigureAwait(false);
                     await DownloadAsync(YoutubeVideo, videoTempFilePath, cancellationToken).ConfigureAwait(false);
+
+                    Progress = 0;
+                    ProgressMax = long.MaxValue;
                 }
                 finally
                 {
@@ -253,7 +256,7 @@ namespace YoutubeDotMp3.ViewModels
                     {
                         response.EnsureSuccessStatusCode();
 
-                        VideoSize = response.Content.Headers.ContentLength ?? throw new EndOfStreamException();
+                        ProgressMax = response.Content.Headers.ContentLength ?? throw new EndOfStreamException();
 
                         cancellationToken.ThrowIfCancellationRequested();
                         using (Stream videoInputStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
@@ -268,7 +271,7 @@ namespace YoutubeDotMp3.ViewModels
                                     readBytes = await videoInputStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false);
                                     await videoOutputFileStream.WriteAsync(buffer, 0, readBytes, cancellationToken).ConfigureAwait(false);
 
-                                    DownloadedBytes += readBytes;
+                                    Progress += readBytes;
                                 }
                                 while (readBytes != 0);
                             }
@@ -281,44 +284,22 @@ namespace YoutubeDotMp3.ViewModels
             DownloadSpeed = 0;
         }
 
-        static private async Task ConvertAsync(string inputFilePath, string outputFilePath, CancellationToken cancellationToken)
+        private async Task ConvertAsync(string inputFilePath, string outputFilePath, CancellationToken cancellationToken)
         {
-            await Task.Run(() =>
+            IConversion extractAudio = Conversion.ExtractAudio(inputFilePath, outputFilePath).SetOverwriteOutput(true);
+            extractAudio.OnProgress += (sender, e) =>
             {
-                try
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
+                Progress = e.Duration.Ticks;
+                ProgressMax = e.TotalLength.Ticks;
+            };
 
-                    var videoFile = new MediaFile { Filename = inputFilePath };
-                    var outputFile = new MediaFile { Filename = outputFilePath };
-
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    using (var engine = new MediaToolkit.Engine())
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        engine.GetMetadata(videoFile);
-
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        engine.Convert(videoFile, outputFile);
-
-                        cancellationToken.ThrowIfCancellationRequested();
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                }
-            }, cancellationToken);
-
-            cancellationToken.ThrowIfCancellationRequested();
+            await extractAudio.Start(cancellationToken);
         }
 
         public long RefreshDownloadSpeed()
         {
             if (_downloadedBytesSubject != null && !_downloadedBytesSubject.IsDisposed)
-                _downloadedBytesSubject.OnNext(DownloadedBytes);
+                _downloadedBytesSubject.OnNext(Progress);
             return DownloadSpeed;
         }
 
