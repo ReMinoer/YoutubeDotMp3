@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
@@ -18,7 +19,7 @@ namespace YoutubeDotMp3.ViewModels
             Initializing,
             InQueue,
             DownloadingVideo,
-            ConvertingToAudio,
+            ExtractingAudio,
             Completed,
             Failed,
             Cancelling,
@@ -66,6 +67,8 @@ namespace YoutubeDotMp3.ViewModels
         public EventHandler<State> CurrentStateChanged;
         public bool IsRunning => CurrentState != State.Completed && CurrentState != State.Failed && CurrentState != State.Cancelling && CurrentState != State.Canceled;
         
+        private string _outputFileName;
+        private string _outputFilePathTemp;
         private string _outputFilePath;
         public string OutputFilePath
         {
@@ -141,12 +144,12 @@ namespace YoutubeDotMp3.ViewModels
                     downloadSemaphore.Release();
                 }
 
-                CurrentState = State.ConvertingToAudio;
+                CurrentState = State.ExtractingAudio;
                 await conversionSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
 
                 try
                 {
-                    await ConvertAsync(videoTempFilePath, OutputFilePath, cancellationToken).ConfigureAwait(false);
+                    await ConvertAsync(videoTempFilePath, _outputFileName, cancellationToken).ConfigureAwait(false);
                 }
                 finally
                 {
@@ -171,6 +174,9 @@ namespace YoutubeDotMp3.ViewModels
             finally
             {
                 DownloadSpeed = 0;
+                
+                if (File.Exists(_outputFilePathTemp))
+                    File.Delete(_outputFilePathTemp);
                 
                 if (File.Exists(videoTempFilePath))
                     File.Delete(videoTempFilePath);
@@ -215,30 +221,31 @@ namespace YoutubeDotMp3.ViewModels
                 fileNameBase = fileNameBase.Replace(invalidFileNameChar, '_');
             fileNameBase = fileNameBase.Replace('.', '_');
 
-            const string fileExtension = ".mp3";
-            string filePath = Path.Combine(OutputDirectoryPath, fileNameBase + fileExtension);
+            string fileName = fileNameBase;
 
             await ValidNameSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
                 int i = 1;
-                while (File.Exists(filePath))
+                while (Directory.GetFiles(OutputDirectoryPath, $"{fileName}.*").Any())
                 {
                     i++;
-                    filePath = Path.Combine(OutputDirectoryPath, $"{fileNameBase} ({i})" + fileExtension);
+                    fileName = $"{fileNameBase} ({i})";
                 }
+
+                _outputFilePathTemp = Path.Combine(OutputDirectoryPath, fileName + ".tmp");
 
                 if (!Directory.Exists(OutputDirectoryPath))
                     Directory.CreateDirectory(OutputDirectoryPath);
 
-                File.Create(filePath);
+                File.Create(_outputFilePathTemp);
             }
             finally
             {
                 ValidNameSemaphore.Release();
             }
 
-            OutputFilePath = filePath;
+            _outputFileName = fileName;
         }
 
         private async Task DownloadAsync(YouTubeVideo youtubeVideo, string videoOutputFilePath, CancellationToken cancellationToken)
@@ -284,9 +291,14 @@ namespace YoutubeDotMp3.ViewModels
             DownloadSpeed = 0;
         }
 
-        private async Task ConvertAsync(string inputFilePath, string outputFilePath, CancellationToken cancellationToken)
+        private async Task ConvertAsync(string inputFilePath, string outputFileName, CancellationToken cancellationToken)
         {
-            IConversion extractAudio = Conversion.ExtractAudio(inputFilePath, outputFilePath).SetOverwriteOutput(true);
+            IMediaInfo mediaInfo = await MediaInfo.Get(inputFilePath);
+            string audioFormat = mediaInfo.AudioStreams.First().Format;
+
+            OutputFilePath = Path.Combine(OutputDirectoryPath, outputFileName + "." + audioFormat);
+
+            IConversion extractAudio = Conversion.ExtractAudio(inputFilePath, OutputFilePath).SetOverwriteOutput(true);
             extractAudio.OnProgress += (sender, e) =>
             {
                 Progress = e.Duration.Ticks;

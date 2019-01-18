@@ -12,7 +12,7 @@ namespace YoutubeDotMp3.Converters
                 case OperationViewModel.State.Initializing: return "Initializing...";
                 case OperationViewModel.State.InQueue: return "Waiting in queue for others operations to end...";
                 case OperationViewModel.State.DownloadingVideo: return "Downloading video...";
-                case OperationViewModel.State.ConvertingToAudio: return "Converting video to audio file...";
+                case OperationViewModel.State.ExtractingAudio: return "Extracting audio from video...";
                 case OperationViewModel.State.Completed: return "Completed with success.";
                 case OperationViewModel.State.Failed: return "Failed.";
                 case OperationViewModel.State.Cancelling: return "Cancelling operation...";
