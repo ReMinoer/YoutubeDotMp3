@@ -26,6 +26,16 @@ namespace YoutubeDotMp3.ViewModels
             Canceled
         }
 
+        public enum OutputFormat
+        {
+            Aac,
+            Mp3,
+            Wma,
+            Wav,
+            Flac,
+            Ogg
+        }
+
         public const string OutputDirectory = MainViewModel.FriendlyApplicationName;
         static public string OutputDirectoryPath { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), OutputDirectory);
         
@@ -33,6 +43,7 @@ namespace YoutubeDotMp3.ViewModels
         private CancellationTokenSource _cancellation = new CancellationTokenSource();
         
         public string YoutubeVideoUrl { get; }
+        public OutputFormat OutputFileFormat { get; }
 
         private YouTubeVideo _youtubeVideo;
         public YouTubeVideo YoutubeVideo
@@ -104,9 +115,10 @@ namespace YoutubeDotMp3.ViewModels
             private set => Set(ref _exception, value);
         }
 
-        public OperationViewModel(string youtubeVideoUrl)
+        public OperationViewModel(string youtubeVideoUrl, OutputFormat outputFileFormat)
         {
             YoutubeVideoUrl = youtubeVideoUrl;
+            OutputFileFormat = outputFileFormat;
         }
 
         public async Task RunAsync(SemaphoreSlimQueued downloadSemaphore, SemaphoreSlimQueued conversionSemaphore)
@@ -293,10 +305,7 @@ namespace YoutubeDotMp3.ViewModels
 
         private async Task ConvertAsync(string inputFilePath, string outputFileName, CancellationToken cancellationToken)
         {
-            IMediaInfo mediaInfo = await MediaInfo.Get(inputFilePath);
-            string audioFormat = mediaInfo.AudioStreams.First().Format;
-
-            OutputFilePath = Path.Combine(OutputDirectoryPath, outputFileName + "." + audioFormat);
+            OutputFilePath = Path.Combine(OutputDirectoryPath, outputFileName + "." + OutputFileFormat.ToString().ToLowerInvariant());
 
             IConversion extractAudio = Conversion.ExtractAudio(inputFilePath, OutputFilePath).SetOverwriteOutput(true);
             extractAudio.OnProgress += (sender, e) =>

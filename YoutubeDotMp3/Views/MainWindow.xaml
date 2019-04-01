@@ -28,13 +28,25 @@
         </ResourceDictionary>
     </Window.Resources>
     <DockPanel>
-        <DockPanel DockPanel.Dock="Top" Margin="5">
-            <wpfToggleSwitch:ToggleSwitch DockPanel.Dock="Right"
-                                          Margin="5 0 0 0"
-                                          Content="Clipboard watcher"
-                                          ToolTip="If enabled, it will automatically launch an operation when a Youtube link is copied in your clipboard."
-                                          IsChecked="{Binding IsClipboardWatcherEnabled}" />
-            <DockPanel>
+        <DockPanel DockPanel.Dock="Top">
+            <DockPanel Margin="2 5 0 5">
+                <wpfToggleSwitch:ToggleSwitch DockPanel.Dock="Right"
+                                              Margin="5 0 0 0"
+                                              Content="Clipboard watcher"
+                                              ToolTip="If enabled, it will automatically launch an operation when a Youtube link is copied in your clipboard."
+                                              IsChecked="{Binding IsClipboardWatcherEnabled}"
+                                              CheckedText=""
+                                              UncheckedText=""
+                />
+                <DockPanel DockPanel.Dock="Right" ToolTip="Output file format. Aac is the fastest to get since it is the default Youtube audio format.">
+                    <Label VerticalAlignment="Center" DockPanel.Dock="Left">Output</Label>
+                    <ComboBox ItemsSource="{Binding OutputFormats}"
+                              SelectedItem="{Binding SelectedOutputFormat}"
+                              VerticalContentAlignment="Center"
+                              DockPanel.Dock="Right"
+                              Width="70"
+                    />
+                </DockPanel>
                 <Label DockPanel.Dock="Left" VerticalAlignment="Center">Youtube URL</Label>
                 <TextBox MaxLines="1">
                     <TextBox.Text>

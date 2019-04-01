@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -64,6 +65,16 @@ namespace YoutubeDotMp3.ViewModels
         {
             get => _inputUrl;
             set => Set(ref _inputUrl, value);
+        }
+
+        static private readonly IEnumerable<OperationViewModel.OutputFormat> _outputFormats = typeof(OperationViewModel.OutputFormat).GetEnumValues().Cast<OperationViewModel.OutputFormat>().ToArray();
+        public IEnumerable<OperationViewModel.OutputFormat> OutputFormats => _outputFormats;
+        
+        private OperationViewModel.OutputFormat _selectedOutputFormat = OperationViewModel.OutputFormat.Aac;
+        public OperationViewModel.OutputFormat SelectedOutputFormat
+        {
+            get => _selectedOutputFormat;
+            set => Set(ref _selectedOutputFormat, value);
         }
 
         private bool _isClipboardWatcherEnabled;
@@ -224,7 +235,7 @@ namespace YoutubeDotMp3.ViewModels
         
         private async Task AddOperationAsync(string youtubeVideoUrl)
         {
-            var operation = new OperationViewModel(youtubeVideoUrl);
+            var operation = new OperationViewModel(youtubeVideoUrl, SelectedOutputFormat);
             Application.Current.Dispatcher.Invoke(() => Operations.Insert(0, operation));
             
             await RunOperationAsync(operation).ConfigureAwait(false);
