@@ -186,11 +186,14 @@ namespace YoutubeDotMp3.ViewModels
                 if (File.Exists(versionJson))
                     File.Delete(versionJson);
             }
-
-            Task downloadTask = Task.Run(FFmpeg.GetLatestVersion, CancellationToken.None);
             
             var messageCancellation = new CancellationTokenSource();
-            downloadTask.ContinueWith(t => messageCancellation.Cancel());
+
+            Task downloadTask = Task.Run(async () =>
+            {
+                await FFmpeg.GetLatestVersion();
+                messageCancellation.Cancel();
+            }, CancellationToken.None);
 
             try
             {
