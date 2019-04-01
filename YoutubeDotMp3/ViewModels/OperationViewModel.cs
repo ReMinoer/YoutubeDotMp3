@@ -75,7 +75,7 @@ namespace YoutubeDotMp3.ViewModels
             }
         }
 
-        public EventHandler<State> CurrentStateChanged;
+        public event EventHandler<State> CurrentStateChanged;
         public bool IsRunning => CurrentState != State.Completed && CurrentState != State.Failed && CurrentState != State.Cancelling && CurrentState != State.Canceled;
         
         private string _outputFileName;
