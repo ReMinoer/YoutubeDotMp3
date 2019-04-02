@@ -285,7 +285,7 @@ namespace YoutubeDotMp3.ViewModels
                     if (clipboardText != _lastClipboardText)
                     {
                         if (InputUrlValidationRule.Validate(clipboardText, CultureInfo.CurrentCulture).IsValid)
-                            await AddOperationAsync(Clipboard.GetText()).ConfigureAwait(false);
+                            AddOperationAsync(clipboardText);
                     }
 
                     _lastClipboardText = clipboardText;
