@@ -67,8 +67,7 @@ namespace YoutubeDotMp3.ViewModels
             set => Set(ref _inputUrl, value);
         }
 
-        static private readonly IEnumerable<OperationViewModel.OutputFormat> _outputFormats = typeof(OperationViewModel.OutputFormat).GetEnumValues().Cast<OperationViewModel.OutputFormat>().ToArray();
-        public IEnumerable<OperationViewModel.OutputFormat> OutputFormats => _outputFormats;
+        public IEnumerable<OperationViewModel.OutputFormat> OutputFormats { get; }
         
         private OperationViewModel.OutputFormat _selectedOutputFormat = OperationViewModel.OutputFormat.Aac;
         public OperationViewModel.OutputFormat SelectedOutputFormat
@@ -151,6 +150,8 @@ namespace YoutubeDotMp3.ViewModels
 
         public MainViewModel()
         {
+            OutputFormats =  typeof(OperationViewModel.OutputFormat).GetEnumValues().Cast<OperationViewModel.OutputFormat>().ToArray();
+
             AddOperationCommand = new SimpleCommand<bool>(AddOperation, CanAddOperation);
             ContextualCommands = new[]
             {
@@ -172,6 +173,9 @@ namespace YoutubeDotMp3.ViewModels
 
         public async void OnLoaded()
         {
+            if (Application.Current.MainWindow == null)
+                throw new InvalidOperationException("Application.Current.MainWindow is null !");
+
             Application.Current.MainWindow.IsEnabled = false;
             await GetFFmpeg();
             Application.Current.MainWindow.IsEnabled = true;
@@ -285,7 +289,7 @@ namespace YoutubeDotMp3.ViewModels
                     if (clipboardText != _lastClipboardText)
                     {
                         if (InputUrlValidationRule.Validate(clipboardText, CultureInfo.CurrentCulture).IsValid)
-                            AddOperationAsync(clipboardText);
+                            AddOperationAsync(clipboardText).Forget();
                     }
 
                     _lastClipboardText = clipboardText;
@@ -325,7 +329,7 @@ namespace YoutubeDotMp3.ViewModels
                         foreach (PlaylistItem playlistItem in listResponse.Items)
                         {
                             cancellationToken.ThrowIfCancellationRequested();
-                            AddOperationAsync($"https://www.youtube.com/watch?v={playlistItem.ContentDetails.VideoId}");
+                            AddOperationAsync($"https://www.youtube.com/watch?v={playlistItem.ContentDetails.VideoId}").Forget();
                         }
 
                         pageToken = listResponse.NextPageToken;

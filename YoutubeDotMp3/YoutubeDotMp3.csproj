@@ -68,6 +68,7 @@
     <Compile Include="Converters\OperationStateToBrush.cs" />
     <Compile Include="Converters\OperationStateToDisplayText.cs" />
     <Compile Include="Converters\OperationStateToMessage.cs" />
+    <Compile Include="Utils\TaskExtensions.cs" />
     <Compile Include="ValidationRules\OrValidationRule.cs" />
     <Compile Include="ValidationRules\RegexValidationRule.cs" />
     <Compile Include="ValidationRules\Base\SimpleValidationRuleBase.cs" />
