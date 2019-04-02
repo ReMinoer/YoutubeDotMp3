@@ -59,9 +59,11 @@
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Behaviors\ProgressBarSmoother.cs" />
     <Compile Include="Converters\Base\SimpleValueConverter.cs" />
     <Compile Include="Converters\NullToVisibility.cs" />
     <Compile Include="Converters\BytesCountToMegaBytesText.cs" />
+    <Compile Include="Converters\OperationStateToSmoothProgress.cs" />
     <Compile Include="Converters\OperationStateToProgressVisibility.cs" />
     <Compile Include="Converters\OperationStateToBrush.cs" />
     <Compile Include="Converters\OperationStateToDisplayText.cs" />

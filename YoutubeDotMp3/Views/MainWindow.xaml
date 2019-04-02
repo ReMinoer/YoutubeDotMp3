@@ -6,6 +6,7 @@
         xmlns:viewModels="clr-namespace:YoutubeDotMp3.ViewModels"
         xmlns:converters="clr-namespace:YoutubeDotMp3.Converters"
         xmlns:wpfToggleSwitch="clr-namespace:WPFToggleSwitch;assembly=WPFToggleSwitch"
+        xmlns:behaviors="clr-namespace:YoutubeDotMp3.Behaviors"
         mc:Ignorable="d"
         Height="450"
         Width="800"
@@ -24,6 +25,7 @@
             <converters:OperationStateToMessage x:Key="OperationStateToMessage" />
             <converters:OperationStateToBrush x:Key="OperationStateToBrush" />
             <converters:OperationStateToProgressVisibility x:Key="OperationStateToProgressVisibility" />
+            <converters:OperationStateToSmoothProgress x:Key="OperationStateToSmoothProgress"/>
             <converters:BytesCountToMegaBytesText x:Key="BytesCountToMegaBytesText"/>
         </ResourceDictionary>
     </Window.Resources>
@@ -142,11 +144,12 @@
                                     </ResourceDictionary>
                                 </DockPanel.Resources>
                                 <ProgressBar DockPanel.Dock="Right"
-                                             Value="{Binding Progress, Mode=OneWay}"
                                              Maximum="{Binding ProgressMax}"
                                              Width="100"
                                              Height="5"
                                              Visibility="{Binding CurrentState, Converter={StaticResource OperationStateToProgressVisibility}}"
+                                             behaviors:ProgressBarSmoother.Enabled="{Binding CurrentState, Converter={StaticResource OperationStateToSmoothProgress}}"
+                                             behaviors:ProgressBarSmoother.SmoothValue="{Binding Progress}"
                                              />
                                 <TextBlock Text="{Binding YoutubeVideoUrl}" />
                             </DockPanel>
