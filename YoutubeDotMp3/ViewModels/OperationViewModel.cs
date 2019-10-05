@@ -238,18 +238,19 @@ namespace YoutubeDotMp3.ViewModels
             await ValidNameSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                int i = 1;
-                while (Directory.GetFiles(OutputDirectoryPath, $"{fileName}.*").Any())
+                if (!Directory.Exists(OutputDirectoryPath))
+                    Directory.CreateDirectory(OutputDirectoryPath);
+                else
                 {
-                    i++;
-                    fileName = $"{fileNameBase} ({i})";
+                    int i = 1;
+                    while (Directory.GetFiles(OutputDirectoryPath, $"{fileName}.*").Any())
+                    {
+                        i++;
+                        fileName = $"{fileNameBase} ({i})";
+                    }
                 }
 
                 _outputFilePathTemp = Path.Combine(OutputDirectoryPath, fileName + ".tmp");
-
-                if (!Directory.Exists(OutputDirectoryPath))
-                    Directory.CreateDirectory(OutputDirectoryPath);
-
                 File.Create(_outputFilePathTemp);
             }
             finally
