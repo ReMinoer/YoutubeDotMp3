@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
@@ -30,11 +31,13 @@ namespace YoutubeDotMp3.ViewModels
         public const string ApplicationName = "Youtube.Mp3";
         public const string FriendlyApplicationName = "YoutubeDotMp3";
 
-        static public readonly Regex YoutubeVideoAddressRegex = new Regex(
+        private Dispatcher _uiDispatcher;
+
+        static private readonly Regex YoutubeVideoAddressRegex = new Regex(
             @"^(?:(?:https?:\/\/)?(?:(?:www\.)?youtube\.com\/watch\?.*v=([\w\-]*)?(?:\&.*)?.*|youtu\.be\/([\w\-]*)?:\?.*?))?$",
             RegexOptions.Compiled);
         
-        static public readonly Regex YoutubePlaylistAddressRegex = new Regex(
+        static private readonly Regex YoutubePlaylistAddressRegex = new Regex(
             @"^(?:(?:https?:\/\/)?(?:(?:www\.)?youtube\.com\/playlist\?.*list=([\w\-]*)?(?:\&.*)?.*))?$",
             RegexOptions.Compiled);
 
@@ -82,14 +85,13 @@ namespace YoutubeDotMp3.ViewModels
             get => _isClipboardWatcherEnabled;
             set
             {
-                if (Set(ref _isClipboardWatcherEnabled, value))
-                {
-                    if (_isClipboardWatcherEnabled)
-                    {
-                        _lastClipboardText = Clipboard.GetText();
-                        RunClipboardWatcherAsync();
-                    }
-                }
+                if (!Set(ref _isClipboardWatcherEnabled, value))
+                    return;
+                if (!_isClipboardWatcherEnabled)
+                    return;
+
+                _lastClipboardText = Clipboard.GetText();
+                RunClipboardWatcherAsync();
             }
         }
         
@@ -120,7 +122,7 @@ namespace YoutubeDotMp3.ViewModels
 
         private void SelectedOperationCurrentStateChanged(object sender, OperationViewModel.State e)
         {
-            Application.Current.Dispatcher.Invoke(() =>
+            DispatchOnUiThread(() =>
             {
                 foreach (ISimpleCommand command in ContextualCommands)
                     command.UpdateCanExecute();
@@ -173,13 +175,18 @@ namespace YoutubeDotMp3.ViewModels
 
         public async void OnLoaded()
         {
-            if (Application.Current.MainWindow == null)
-                throw new InvalidOperationException("Application.Current.MainWindow is null !");
+            _uiDispatcher = Application.Current.Dispatcher;
 
-            Application.Current.MainWindow.IsEnabled = false;
+            Window mainWindow = Application.Current.MainWindow;
+            if (mainWindow == null)
+                throw new InvalidOperationException("Cannot retrieve the main window!");
+
+            mainWindow.IsEnabled = false;
             await GetFFmpeg();
-            Application.Current.MainWindow.IsEnabled = true;
+            mainWindow.IsEnabled = true;
         }
+
+        private void DispatchOnUiThread(Action action) => _uiDispatcher?.Invoke(action);
 
         private async Task GetFFmpeg()
         {
@@ -240,7 +247,7 @@ namespace YoutubeDotMp3.ViewModels
         private async Task AddOperationAsync(string youtubeVideoUrl)
         {
             var operation = new OperationViewModel(youtubeVideoUrl, SelectedOutputFormat);
-            Application.Current.Dispatcher.Invoke(() => Operations.Insert(0, operation));
+            DispatchOnUiThread(() => Operations.Insert(0, operation));
             
             await RunOperationAsync(operation).ConfigureAwait(false);
         }
@@ -285,7 +292,7 @@ namespace YoutubeDotMp3.ViewModels
                 if (Clipboard.ContainsText())
                 {
                     string clipboardText = null;
-                    Application.Current.Dispatcher.Invoke(() => clipboardText = Clipboard.GetText());
+                    DispatchOnUiThread(() => clipboardText = Clipboard.GetText());
                     if (clipboardText != _lastClipboardText)
                     {
                         if (InputUrlValidationRule.Validate(clipboardText, CultureInfo.CurrentCulture).IsValid)

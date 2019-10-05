@@ -118,6 +118,6 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="GoogleClientSecretsJson" xml:space="preserve">
-    <value>{"installed":{"client_id":"1060009920893-dkre9h2n9nlmuvovsf2s951uf82fspun.apps.googleusercontent.com","project_id":"reminoer","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://www.googleapis.com/oauth2/v3/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_secret":"-U15wKu5TjXAQtZy9E2JoQU1","redirect_uris":["urn:ietf:wg:oauth:2.0:oob","http://localhost"]}}</value>
+    <value>{"installed":{"client_id":"572343047984-daij7jv9vsm3cavqr3p4fpctnust81ji.apps.googleusercontent.com","project_id":"reminoer-youtube","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_secret":"ffwcbhpWlVu8Nwk2-8IOK9qe","redirect_uris":["urn:ietf:wg:oauth:2.0:oob","http://localhost"]}}</value>
   </data>
 </root>
