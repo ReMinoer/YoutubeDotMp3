@@ -251,7 +251,7 @@ namespace YoutubeDotMp3.ViewModels
                 }
 
                 _outputFilePathTemp = Path.Combine(OutputDirectoryPath, fileName + ".tmp");
-                File.Create(_outputFilePathTemp);
+                File.Create(_outputFilePathTemp).Close();
             }
             finally
             {
