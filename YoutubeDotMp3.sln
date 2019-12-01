@@ -5,6 +5,10 @@ VisualStudioVersion = 15.0.27428.2015
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YoutubeDotMp3", "YoutubeDotMp3\YoutubeDotMp3.csproj", "{6209222C-8225-4D1E-8F31-E0102F90E049}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "External", "External", "{DD99CE1B-6508-4894-9BDF-6B8502FF371B}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "libvideo", "External\libvideo-omansak\src\libvideo\libvideo.csproj", "{FEF37BE2-02AA-4787-B3A8-772E4638A61F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,9 +19,16 @@ Global
 		{6209222C-8225-4D1E-8F31-E0102F90E049}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6209222C-8225-4D1E-8F31-E0102F90E049}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6209222C-8225-4D1E-8F31-E0102F90E049}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FEF37BE2-02AA-4787-B3A8-772E4638A61F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FEF37BE2-02AA-4787-B3A8-772E4638A61F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FEF37BE2-02AA-4787-B3A8-772E4638A61F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FEF37BE2-02AA-4787-B3A8-772E4638A61F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{FEF37BE2-02AA-4787-B3A8-772E4638A61F} = {DD99CE1B-6508-4894-9BDF-6B8502FF371B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {37DA657D-1125-4BB2-8CC1-69DE3443E496}

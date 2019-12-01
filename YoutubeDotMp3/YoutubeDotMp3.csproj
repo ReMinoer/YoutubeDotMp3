@@ -116,9 +116,6 @@
     <PackageReference Include="System.Reactive">
       <Version>4.1.6</Version>
     </PackageReference>
-    <PackageReference Include="VideoLibraryHIG">
-      <Version>1.5.3</Version>
-    </PackageReference>
     <PackageReference Include="WPFToggleSwitch">
       <Version>1.0.0</Version>
     </PackageReference>
@@ -128,6 +125,12 @@
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Resources\icon.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\External\libvideo-omansak\src\libvideo\libvideo.csproj">
+      <Project>{fef37be2-02aa-4787-b3a8-772e4638a61f}</Project>
+      <Name>libvideo</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

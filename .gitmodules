@@ -1,0 +1,4 @@
+[submodule "External/libvideo-omansak"]
+	path = External/libvideo-omansak
+	url = https://github.com/omansak/libvideo.git
+	branch = master
