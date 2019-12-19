@@ -244,21 +244,21 @@ namespace YoutubeDotMp3.ViewModels
             await AddOperationAsync(InputUrl).ConfigureAwait(false);
         }
         
-        private async Task AddOperationAsync(string youtubeVideoUrl)
+        private Task AddOperationAsync(string youtubeVideoUrl)
         {
             var operation = new OperationViewModel(youtubeVideoUrl, SelectedOutputFormat);
             DispatchOnUiThread(() => Operations.Insert(0, operation));
             
-            await RunOperationAsync(operation).ConfigureAwait(false);
+            return RunOperationAsync(operation);
         }
 
         private Task RunOperationAsync(OperationViewModel operation)
         {
+            Task runTask = operation.RunAsync(_downloadSemaphore, _conversionSemaphore);
+            Tasks.GetOrAdd(runTask, default(byte));
+
             return Task.Run(async () =>
             {
-                Task runTask = operation.RunAsync(_downloadSemaphore, _conversionSemaphore);
-                Tasks.GetOrAdd(runTask, default(byte));
-
                 await runTask.ConfigureAwait(false);
                 Tasks.TryRemove(runTask, out _);
             });

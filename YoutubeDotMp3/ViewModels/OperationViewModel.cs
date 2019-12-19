@@ -17,8 +17,9 @@ namespace YoutubeDotMp3.ViewModels
         public enum State
         {
             Initializing,
-            InQueue,
+            QueuedForVideoDownload,
             DownloadingVideo,
+            QueuedForAudioExtraction,
             ExtractingAudio,
             Completed,
             Failed,
@@ -35,6 +36,8 @@ namespace YoutubeDotMp3.ViewModels
             Flac,
             Ogg
         }
+
+        static private readonly SemaphoreSlimQueued ValidNameSemaphore = new SemaphoreSlimQueued(1);
 
         public const string OutputDirectory = MainViewModel.FriendlyApplicationName;
         static public string OutputDirectoryPath { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), OutputDirectory);
@@ -129,53 +132,43 @@ namespace YoutubeDotMp3.ViewModels
             DownloadSpeed = 0;
             Exception = null;
 
-            Task downloadSemaphoreWaitTask = null;
             string videoTempFilePath = Path.GetTempFileName();
+
+            CancellationToken cancellationToken = _cancellation.Token;
+            var downloadLock = new SemaphoreLock(downloadSemaphore, cancellationToken);
+            SemaphoreLock convertLock = null;
+
             try
             {
-                CancellationToken cancellationToken = _cancellation.Token;
-                downloadSemaphoreWaitTask = downloadSemaphore.WaitAsync(cancellationToken);
-
                 await InitializeAsync(cancellationToken).ConfigureAwait(false);
 
-                CurrentState = State.InQueue;
-                await downloadSemaphoreWaitTask.ConfigureAwait(false);
-                downloadSemaphoreWaitTask = null;
-
-                try
+                CurrentState = State.QueuedForVideoDownload;
+                using (await downloadLock)
                 {
                     CurrentState = State.DownloadingVideo;
-                    await CreateValidFileAsync(cancellationToken).ConfigureAwait(false);
-                    await DownloadAsync(YoutubeVideo, videoTempFilePath, cancellationToken).ConfigureAwait(false);
-
-                    Progress = 0;
-                    ProgressMax = long.MaxValue;
-                }
-                finally
-                {
-                    downloadSemaphore.Release();
+                    {
+                        await CreateValidFileAsync(cancellationToken).ConfigureAwait(false);
+                        await DownloadAsync(YoutubeVideo, videoTempFilePath, cancellationToken).ConfigureAwait(false);
+                    }
                 }
 
-                CurrentState = State.ExtractingAudio;
-                await conversionSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+                Progress = 0;
+                ProgressMax = long.MaxValue;
+                convertLock = new SemaphoreLock(conversionSemaphore, cancellationToken);
 
-                try
+                CurrentState = State.QueuedForAudioExtraction;
+                using (await convertLock)
                 {
-                    await ConvertAsync(videoTempFilePath, _outputFileName, cancellationToken).ConfigureAwait(false);
-                }
-                finally
-                {
-                    conversionSemaphore.Release();
+                    CurrentState = State.ExtractingAudio;
+                    {
+                        await ConvertAsync(videoTempFilePath, _outputFileName, cancellationToken).ConfigureAwait(false);
+                    }
                 }
 
                 CurrentState = State.Completed;
             }
             catch (OperationCanceledException)
             {
-                // Handle delayed semaphore await and initialization cancellation
-                if (downloadSemaphoreWaitTask != null && downloadSemaphoreWaitTask.IsCompleted && !downloadSemaphoreWaitTask.IsCanceled)
-                    downloadSemaphore.Release();
-
                 CurrentState = State.Canceled;
             }
             catch (Exception ex)
@@ -186,7 +179,10 @@ namespace YoutubeDotMp3.ViewModels
             finally
             {
                 DownloadSpeed = 0;
-                
+
+                downloadLock.Dispose();
+                convertLock?.Dispose();
+
                 if (File.Exists(_outputFilePathTemp))
                     File.Delete(_outputFilePathTemp);
                 
@@ -224,7 +220,6 @@ namespace YoutubeDotMp3.ViewModels
                 Title = YoutubeVideo.Title.Substring(0, YoutubeVideo.Title.Length - " - Youtube".Length);
         }
 
-        static private readonly SemaphoreSlimQueued ValidNameSemaphore = new SemaphoreSlimQueued(1);
         private async Task CreateValidFileAsync(CancellationToken cancellationToken)
         {
             string fileNameBase = Title;
@@ -235,8 +230,7 @@ namespace YoutubeDotMp3.ViewModels
 
             string fileName = fileNameBase;
 
-            await ValidNameSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
-            try
+            using (await new SemaphoreLock(ValidNameSemaphore, cancellationToken))
             {
                 if (!Directory.Exists(OutputDirectoryPath))
                     Directory.CreateDirectory(OutputDirectoryPath);
@@ -252,10 +246,6 @@ namespace YoutubeDotMp3.ViewModels
 
                 _outputFilePathTemp = Path.Combine(OutputDirectoryPath, fileName + ".tmp");
                 File.Create(_outputFilePathTemp).Close();
-            }
-            finally
-            {
-                ValidNameSemaphore.Release();
             }
 
             _outputFileName = fileName;

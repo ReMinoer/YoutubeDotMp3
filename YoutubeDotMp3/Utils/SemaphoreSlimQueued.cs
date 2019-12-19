@@ -39,23 +39,33 @@ namespace YoutubeDotMp3.Utils
             });
         }
 
-        private async Task<bool> EnqueueAsync(Func<SemaphoreSlim, Task<bool>> semaphoreTaskFunc)
+        private Task<bool> EnqueueAsync(Func<SemaphoreSlim, Task<bool>> semaphoreTaskFunc)
         {
             var queuedTcs = new TaskCompletionSource<bool>();
             _queue.Enqueue(queuedTcs);
 
-            bool result = false;
-            try
-            {
-                result = await semaphoreTaskFunc(_semaphoreSlim).ConfigureAwait(false);
-            }
-            finally
-            {
-                _queue.TryDequeue(out TaskCompletionSource<bool> dequeuedTcs);
-                dequeuedTcs.SetResult(result);
-            }
+            #pragma warning disable 4014
+            WaitTask();
+            #pragma warning restore 4014
             
-            return await queuedTcs.Task.ConfigureAwait(false);
+            return queuedTcs.Task;
+
+            async Task WaitTask()
+            {
+                try
+                {
+                    bool result = await semaphoreTaskFunc(_semaphoreSlim).ConfigureAwait(false);
+
+                    _queue.TryDequeue(out TaskCompletionSource<bool> dequeuedTcs);
+                    dequeuedTcs.SetResult(result);
+                }
+                catch (OperationCanceledException)
+                {
+                    _queue.TryDequeue(out TaskCompletionSource<bool> dequeuedTcs);
+                    dequeuedTcs.SetResult(false);
+                    throw;
+                }
+            }
         }
 
         public int Release() => _semaphoreSlim.Release();

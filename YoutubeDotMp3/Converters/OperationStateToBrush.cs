@@ -10,9 +10,10 @@ namespace YoutubeDotMp3.Converters
         {
             switch (value)
             {
-                case OperationViewModel.State.Initializing: return Brushes.RoyalBlue;
-                case OperationViewModel.State.InQueue: return Brushes.LightSkyBlue;
-                case OperationViewModel.State.DownloadingVideo: return Brushes.Gold;
+                case OperationViewModel.State.Initializing: return Brushes.Plum;
+                case OperationViewModel.State.QueuedForVideoDownload: return Brushes.LightSkyBlue;
+                case OperationViewModel.State.DownloadingVideo: return Brushes.RoyalBlue;
+                case OperationViewModel.State.QueuedForAudioExtraction: return Brushes.MediumPurple;
                 case OperationViewModel.State.ExtractingAudio: return Brushes.Orange;
                 case OperationViewModel.State.Completed: return Brushes.Green;
                 case OperationViewModel.State.Failed: return Brushes.Red;
