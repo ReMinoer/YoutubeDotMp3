@@ -216,8 +216,8 @@ namespace YoutubeDotMp3.ViewModels
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (_title == null)
-                Title = YoutubeVideo.Title.Substring(0, YoutubeVideo.Title.Length - " - Youtube".Length);
+            if (_title is null)
+                Title = YoutubeVideo.Title;
         }
 
         private async Task CreateValidFileAsync(CancellationToken cancellationToken)
@@ -298,7 +298,7 @@ namespace YoutubeDotMp3.ViewModels
         {
             OutputFilePath = Path.Combine(OutputDirectoryPath, outputFileName + "." + OutputFileFormat.ToString().ToLowerInvariant());
 
-            IConversion extractAudio = Conversion.ExtractAudio(inputFilePath, OutputFilePath).SetOverwriteOutput(true);
+            IConversion extractAudio = (await FFmpeg.Conversions.FromSnippet.ExtractAudio(inputFilePath, OutputFilePath)).SetOverwriteOutput(true);
             extractAudio.OnProgress += (sender, e) =>
             {
                 Progress = e.Duration.Ticks;

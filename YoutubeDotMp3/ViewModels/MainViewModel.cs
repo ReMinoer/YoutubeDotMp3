@@ -21,6 +21,7 @@ using Google.Apis.Util.Store;
 using Google.Apis.YouTube.v3;
 using Google.Apis.YouTube.v3.Data;
 using Xabe.FFmpeg;
+using Xabe.FFmpeg.Downloader;
 using YoutubeDotMp3.Utils;
 using YoutubeDotMp3.ValidationRules;
 
@@ -37,9 +38,9 @@ namespace YoutubeDotMp3.ViewModels
             @"^(?:(?:https?:\/\/)?(?:(?:www\.)?youtube\.com\/watch\?.*v=([\w\-]*)?(?:\&.*)?.*|youtu\.be\/([\w\-]*)?:\?.*?))?$",
             RegexOptions.Compiled);
         
-        static private readonly Regex YoutubePlaylistAddressRegex = new Regex(
-            @"^(?:(?:https?:\/\/)?(?:(?:www\.)?youtube\.com\/playlist\?.*list=([\w\-]*)?(?:\&.*)?.*))?$",
-            RegexOptions.Compiled);
+        //static private readonly Regex YoutubePlaylistAddressRegex = new Regex(
+        //    @"^(?:(?:https?:\/\/)?(?:(?:www\.)?youtube\.com\/playlist\?.*list=([\w\-]*)?(?:\&.*)?.*))?$",
+        //    RegexOptions.Compiled);
 
         static public readonly ValidationRule InputUrlValidationRule = new OrValidationRule
         {
@@ -47,7 +48,7 @@ namespace YoutubeDotMp3.ViewModels
             Rules =
             {
                 new RegexValidationRule { Regex = YoutubeVideoAddressRegex },
-                new RegexValidationRule { Regex = YoutubePlaylistAddressRegex }
+                //new RegexValidationRule { Regex = YoutubePlaylistAddressRegex }
             }
         };
         
@@ -193,7 +194,7 @@ namespace YoutubeDotMp3.ViewModels
             string ffmpegDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
                                      ?? throw new InvalidOperationException();
 
-            FFmpeg.ExecutablesPath = ffmpegDirectory;
+            FFmpeg.SetExecutablesPath(ffmpegDirectory);
 
             string ffmpegExecutable = Path.Combine(ffmpegDirectory, "ffmpeg.exe");
             string ffprobeExecutable = Path.Combine(ffmpegDirectory, "ffprobe.exe");
@@ -213,7 +214,7 @@ namespace YoutubeDotMp3.ViewModels
 
             Task downloadTask = Task.Run(async () =>
             {
-                await FFmpeg.GetLatestVersion();
+                await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official);
                 messageCancellation.Cancel();
             }, CancellationToken.None);
 
@@ -234,12 +235,13 @@ namespace YoutubeDotMp3.ViewModels
         private bool CanAddOperation(bool hasError) => !hasError && !string.IsNullOrEmpty(InputUrl);
         private async void AddOperation()
         {
-            Match playlistRegexMatch = YoutubePlaylistAddressRegex.Match(InputUrl);
-            if (playlistRegexMatch.Success)
-            {
-                await AddOperationsFromPlaylist(playlistRegexMatch.Groups[1].Value, _operationCancellation.Token).ConfigureAwait(false);
-                return;
-            }
+            // TODO: Disabled because API usage will probably not be validated by YouTube.
+            //Match playlistRegexMatch = YoutubePlaylistAddressRegex.Match(InputUrl);
+            //if (playlistRegexMatch.Success)
+            //{
+            //    await AddOperationsFromPlaylist(playlistRegexMatch.Groups[1].Value, _operationCancellation.Token).ConfigureAwait(false);
+            //    return;
+            //}
 
             await AddOperationAsync(InputUrl).ConfigureAwait(false);
         }
