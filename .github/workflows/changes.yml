@@ -14,5 +14,4 @@ jobs:
     with:
       os: windows-latest
       solution_file: YoutubeDotMp3.sln
-      dotnet_version: 4.8
       pack: false

@@ -12,4 +12,3 @@ jobs:
       project_folder: YoutubeDotMp3
       target_framework: net48
       zip_prefix: YoutubeDotMp3
-      dotnet_version: 4.8
