@@ -53,7 +53,7 @@ namespace YoutubeDotMp3.ViewModels
         };
         
         private ConcurrentDictionary<Task, byte> Tasks { get; } = new ConcurrentDictionary<Task, byte>();
-        private readonly SemaphoreSlimQueued _downloadSemaphore = new SemaphoreSlimQueued(1);
+        private readonly SemaphoreSlimQueued _downloadSemaphore = new SemaphoreSlimQueued(Math.Max(1, Environment.ProcessorCount / 2));
         private readonly SemaphoreSlimQueued _conversionSemaphore = new SemaphoreSlimQueued(Math.Max(1, Environment.ProcessorCount / 2));
 
         public ObservableCollection<OperationViewModel> Operations { get; } = new ObservableCollection<OperationViewModel>();
